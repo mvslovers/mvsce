@@ -44,6 +44,7 @@ def version(binary='hercules'):
 class Hercules:
     def __init__(self, config, cwd, log_path, binary='hercules'):
         self.lines = []
+        self.cwd = cwd
         self._cond = threading.Condition()
         self._log = open(log_path, 'a', encoding='utf-8', errors='replace')
         self._log.write(f'\n===== hercules -f {config} (in {cwd}) =====\n')

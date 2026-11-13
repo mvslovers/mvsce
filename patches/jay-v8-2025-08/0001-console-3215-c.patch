@@ -1,0 +1,35 @@
+diff -u a/conf/smp1.cnf b/conf/smp1.cnf
+--- a/conf/smp1.cnf
++++ b/conf/smp1.cnf
+@@ -31,6 +31,6 @@
+ 000E    1403    prt00e.txt
+ 0012    3505    jcl/null.jcl eof
+ 0013    3525    pch013.txt ascii
+-001F    3215                       
++001F    3215-C  /                 # integrated console: driven through stdin
+ 0150    3330    dasd/start1.3330    # mvs 3.7 "starter" system residence
+ 0151    3330    dasd/spool0.3330    # mvs 3.7 jes2 spool volume
+diff -u a/conf/smp2.cnf b/conf/smp2.cnf
+--- a/conf/smp2.cnf
++++ b/conf/smp2.cnf
+@@ -31,7 +31,7 @@
+ 000E    1403    prt00e.txt noclear
+ 0012    3505    jcl/smpmount.jcl eof
+ 0013    3525    pch013.txt ascii
+-001F    3215                       
++001F    3215-C  /                 # integrated console: driven through stdin
+ 0148    3350    dasd/smp000.3350    # target for distribution libraries
+ 0149    3350    dasd/work00.3350    # mvs 3.7 work volume
+ 014A    3350    dasd/work01.3350    # work volume during smp/sysgen & in mvs 3.8j system
+diff -u a/conf/sysgen.cnf b/conf/sysgen.cnf
+--- a/conf/sysgen.cnf
++++ b/conf/sysgen.cnf
+@@ -31,7 +31,7 @@
+ 000E    1403    prt00e.txt
+ 0012    3505    jcl/null.jcl eof trunc ascii
+ 0013    3525    pch013.txt ascii
+-001F    3215                       
++001F    3215-C  /                 # integrated console: driven through stdin
+ 0148    3350    dasd/smp000.3350    # distribution libraries
+ 0150    3330    dasd/start1.3330    # mvs 3.7 "starter" system residence
+ 0151    3330    dasd/spool0.3330    # mvs 3.7 jes2 spool volume

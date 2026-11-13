@@ -3,8 +3,9 @@
 A reproducible build of MVS 3.8j on Hercules, following Jay Moseley's sysgen
 procedure, automated and reproducible: an alternative build of MVS/CE.
 
-**Status:** phase 1, automating the sysgen. Stage S1 (the starter system)
-is built; the plan is in [`internals/proposal.md`](internals/proposal.md).
+**Status:** phase 1, automating the sysgen. Stages S1 (starter system) and
+S2 (SMP4 and the distribution libraries) are built; the plan is in
+[`internals/proposal.md`](internals/proposal.md).
 
 ## Building
 
@@ -17,6 +18,8 @@ or later, nothing else. Or use the build environment in `container/`.
 ./sysgen build                  # build all stages
 ./sysgen build --until s1       # up to a stage
 ./sysgen build --no-cache       # run every stage again
+./sysgen build --from s2        # start at a stage, on the last result of the
+                                # one before (for development; caches nothing)
 ```
 
 Inputs and stage results are cached in `cache/`, the build tree and the
