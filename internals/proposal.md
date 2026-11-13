@@ -259,10 +259,10 @@ a deliberate change. Phase 1 builds Jay's system as Jay describes it.
 mvsce/
   inputs.lock          every external input: label, url, size, sha256
   config/              sysgen.toml (Jay label), users.toml, volumes.toml
-  stages/s1-starter/   stage.toml (devices, jobs, expected CCs, manifest) + JCL
-  ...
   patches/<label>/     our changes to Jay's jobs, per Jay version
-  driver/              Python package (hercules, reader, jobs, smp, cache)
+  driver/mvsce/        Python package: inputs, hercules, dasd, build (cache)
+  driver/mvsce/stages/ one module per stage: run(), verify() = its manifest
+  sysgen               entry point
   container/           Dockerfile for the build environment
   docs/                user documentation
   internals/           this file, measurements, releasing.md

@@ -1,0 +1,4 @@
+#!/bin/sh
+# Build driver entry point; see driver/mvsce/__main__.py.
+here=$(cd "$(dirname "$0")" && pwd)
+PYTHONPATH="$here/driver" exec python3 -m mvsce "$@"
