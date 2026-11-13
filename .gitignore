@@ -1,0 +1,6 @@
+# build output and caches
+/build/
+/cache/
+/inputs/
+*.log
+.DS_Store
