@@ -20,7 +20,15 @@ sysgen goes in before phase 1 is done.
   build.
 - **No binaries in git**: tapes, DASD images, XMITs are fetched and verified.
 - **A stage is done when its manifest holds** (SMP `LIST` of SYSMODs and
-  target library members), not when its jobs end with RC 0.
+  target library members), not when its jobs end with RC 0. The SMP
+  expectation is derived from Jay's own jobs (`smp.applied_by`), not
+  kept by hand.
+- **Every job is checked** against Jay's condition codes, its job count
+  and, where Jay gives it, its step count. Use `--record` to measure a
+  new job, then write the expectation down.
+- **No WTOR goes unanswered**: a job's operator rules answer what it
+  asks; anything else stops the build. Operator commands wait for a
+  quiet console.
 - **Jay's version is a label** in `inputs.lock`, selected in
   `config/sysgen.toml`. Jay replaces his files in place; a hash mismatch
   means a new label, never an edited one. Our changes to Jay's jobs are

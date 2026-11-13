@@ -40,10 +40,12 @@ class Context:
         return hercules.Hercules(config, self.tree, log, binary=self.hercules_bin)
 
 
-def _driver_digest():
+def _driver_digest(root):
+    """The driver and our own jobs (jcl/): both shape every stage result."""
     h = hashlib.sha256()
-    for path in sorted(DRIVER.rglob('*.py')):
-        h.update(str(path.relative_to(DRIVER)).encode())
+    files = sorted(DRIVER.rglob('*.py')) + sorted((Path(root) / 'jcl').glob('*'))
+    for path in files:
+        h.update(path.name.encode())
         h.update(path.read_bytes())
     return h.hexdigest()
 
@@ -175,7 +177,7 @@ def build(root, work, cache, until=None, start=None, use_cache=True,
     prepare(ctx, selected, patches)
 
     key = hashlib.sha256('\n'.join(
-        [label, herc_version, _driver_digest()] + [i.sha256 for i in selected]
+        [label, herc_version, _driver_digest(root)] + [i.sha256 for i in selected]
         + [hashlib.sha256(p.read_bytes()).hexdigest() for p in patches]
     ).encode()).hexdigest()
 

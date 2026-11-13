@@ -24,6 +24,9 @@ from .log import BuildError, info
 record = None
 
 WTOR = re.compile(r'\*(\d+) (\S+)')
+# A WTOR as Hercules shows it: "hh:mm:ss /*nn MSGID ...". Action messages
+# ("/*IEC501A ...", no number) are not WTORs.
+WTOR_LINE = re.compile(r'^(?:\d\d:\d\d:\d\d )?/\s*\*(\d+) (\S+)')
 IEF142 = re.compile(r'IEF142I (\S+) (\S+)(?: (\S+))? - STEP WAS EXECUTED - COND CODE (\d{4})')
 # MVS repeats a mount request nobody has answered after some minutes;
 # then the job waits for a tape no rule mounts.
@@ -74,6 +77,8 @@ class Console:
         self.printer = self.tree / printer
         self.loaded = dict(loaded or {})     # drive address -> tape file on it
         self.pos = 0         # console line where the last job ended
+        self.output = ''     # printer output of the last job
+        self.answered = set()  # (reply id, msgid) answered outside run_job
 
     def mount(self, address, tape):
         """Put tape on the drive, unless it is there already: a second
@@ -114,6 +119,8 @@ class Console:
                 self.herc.send('/')
             else:
                 self.herc.send(f'/r {m.group(1) or 0},{text}')
+            if m.group(1) is not None:
+                self.answered.add((m.group(1), msgid))
         if not ready:
             return
         self.herc.wait_for(r'\$HASP099 ALL AVAILABLE FUNCTIONS COMPLETE', timeout,
@@ -123,7 +130,7 @@ class Console:
         return self.printer.stat().st_size if self.printer.exists() else 0
 
     def run_job(self, job, submit=None, rules=(), expect=None, timeout=900, since=None,
-                count=1, commands=(), steps=None):
+                count=1, commands=(), steps=None, read_in=0):
         """Run a job and check its step condition codes.
 
         The run ends when JES2 has purged as many jobs of this name as it
@@ -134,6 +141,9 @@ class Console:
         count: how many such jobs there must be; a different number is an
         error (a job that submits one more than expected, say).
         steps: how many steps they must have run together, where Jay says.
+        read_in: jobs of this name JES2 already holds (held jobs released
+        with commands); the console is read from now on, so rules never see
+        an earlier job's requests again.
         commands: console commands sent first ($A to release a held job).
 
         submit: the JCL file for the reader; None when the job is already
@@ -155,7 +165,7 @@ class Console:
         for cmd in commands:
             self.command(cmd)
         fired = set()
-        read_in = purged_n = 0
+        purged_n = 0
         entered = re.compile(rf'\$HASP100 {re.escape(job)}\s+ON (?:READER\d+|INTRDR)')
         deadline = time.monotonic() + timeout
         purged = re.compile(rf'\$HASP250 {re.escape(job)}\s+IS PURGED')
@@ -210,8 +220,10 @@ class Console:
                         self.herc.send(f'/r {rid.group(1)},{rule.reply}')
                     break
                 if not handled:
-                    w = WTOR.search(line)
-                    if w and line.lstrip('/ ').startswith('*'):
+                    w = WTOR_LINE.search(line)
+                    if w and (w.group(1), w.group(2)) in self.answered:
+                        self.answered.discard((w.group(1), w.group(2)))
+                    elif w:
                         raise BuildError(f'{job}: unexpected operator request {line!r}; '
                                          f'no rule answers {w.group(2)}\n{self.herc.tail()}')
             if self.herc.proc.poll() is not None:
@@ -224,6 +236,7 @@ class Console:
         with open(self.printer, 'rb') as f:
             f.seek(start)
             text = f.read().decode('ascii', 'replace')
+        self.output = text
         steps = []      # (step, cc) in order; a step name may repeat
         for m in IEF142.finditer(text):
             if m.group(1) != job:

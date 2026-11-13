@@ -12,8 +12,10 @@ R13 (FDZ1D02).
 
 The expected condition codes are Jay's.
 """
+import shutil
 import subprocess
 
+from .. import smp
 from ..log import BuildError, info
 from ..mvs import Console, allocate_tape, mount_tape, reply_rule
 
@@ -129,7 +131,7 @@ def run(ctx):
         herc.wait_for(r'\$HASP101 SYSGEN6\s+HELD', 300, since=submitted,
                       what='stage 2 jobs read in and held')
         for job, expect, steps in STAGE2_JOBS:
-            con.run_job(job, None, [U], expect, 3600, since=submitted,
+            con.run_job(job, None, [U], expect, 3600, since=herc.mark(), read_in=1,
                         commands=[f"$a'{job.lower()}'"], steps=steps)
 
         con.run_job('SYSGEN02', 'jcl/sysgen02.jcl', [U], {}, 1800, steps=5)
@@ -147,12 +149,30 @@ def run(ctx):
         con.run_job('FDZ1D02', 'jcl/fdz1d02.jcl',
                     tape('FDZ1D02', 'MVS38J', 'tape/dz1d02.het') + [U], {}, 1800,
                     count=2, steps=5)
+        _verify_smp(ctx, con)
         con.shutdown()
 
 
 # Non-VSAM data sets on the new volumes after the first verified build
 # (2026-11-13). VSAM data spaces and the page data sets carry generated
 # names and are not listed.
+def _verify_smp(ctx, con):
+    """LIST the target zone and hold it against Jay's jobs: every SYSMOD
+    that SYSGEN06 and USERMODS apply must be APP, every one they accept
+    ACC (or superseded by one that is). The listing is kept beside the
+    logs as smp-s3.txt."""
+    shutil.copy(ctx.root / 'jcl' / 'smplist.jcl', ctx.tree / 'jcl' / 'mvsce-smplist.jcl')
+    con.run_job('SMPLIST', 'jcl/mvsce-smplist.jcl', [], {}, 900, steps=1)
+    (ctx.logs / 'smp-s3.txt').write_text(con.output)
+    inv = smp.inventory(con.output)
+    expected = {}
+    for jcl in ('sysgen06.jcl', 'usermods.jcl'):
+        expected.update(smp.applied_by((ctx.tree / 'jcl' / jcl).read_text(errors='replace')))
+    smp.check(inv, expected)
+    info(f'  SMP: {len(expected)} SYSMODs of SYSGEN06 and USERMODS verified; '
+         f'CDS: {smp.summary(inv)}')
+
+
 MANIFEST = {
     'mvsres.3350': [
         'SYS1.BRODCAST', 'SYS1.CMDLIB', 'SYS1.DCMLIB', 'SYS1.DUMP00', 'SYS1.DUMP01',
