@@ -31,3 +31,17 @@ url    = "https://www.jaymoseley.com/hercules/downloads/archives/mvsInstallation
 size   = 18600249
 sha256 = "29600db65bea427d99a711147c81b2564ec078b6c86ebda940c7402759ba91fd"
 md5    = "129898e0f0881078448358553bc6b4c1"
+
+# SYSCPK: Jay Moseley's volume of compilers and tools (a 3350 image),
+# published separately from the installation objects and updated on its
+# own ("uploaded in February, 2026"). Jay's page gives its md5 with one
+# digit too many (...bb3f9); without the trailing 9 it matches.
+# into: extracted below media/, the S4 stage copies it into dasd/.
+[[input]]
+label  = "syscpk-2026-02"
+name   = "SYSCPK.tar.gz"
+url    = "https://www.jaymoseley.com/hercules/downloads/archives/SYSCPK.tar.gz"
+size   = 25572146
+sha256 = "801c92c084267e449714dcfff1321980e3ccd1db181e0afa08953ca68d6bd0e9"
+md5    = "5c3628517cac1df10b1a63d88ca3bb3f"
+into   = "media"

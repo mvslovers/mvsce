@@ -24,6 +24,7 @@ class Input:
     size: int
     sha256: str
     md5: str = ''
+    into: str = ''      # subdirectory of the build tree to extract into
 
 
 def load_lock(path):

@@ -12,6 +12,7 @@ with its condition code. Every step must appear and match the job's
 expected codes; steps not named there must end with 0000.
 """
 import re
+import socket
 import time
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -35,6 +36,9 @@ MOUNT_PENDING = re.compile(r'IGF991E\s+MOUNT PENDING')
 JOB_NOT_FOUND = re.compile(r'\$HASP000 (\S+)\s+JOB NOT FOUND')
 # K = demount: the drive is empty afterwards.
 DEMOUNT = re.compile(r'(?:IEF234E|IEC502E) K ([0-9A-F]{3}),')
+# JLM0001's IEFACTRT on the generated system: one console line per step,
+# "IEFACTRT step/program/cpu/elapsed/rc/job"; rc is 00000 or an abend code.
+IEFACTRT = re.compile(r'IEFACTRT (\S+?)\s*/(\S+?)\s*/[^/]*/[^/]*/(\S+?)\s*/(\S+)')
 IEF450 = re.compile(r'IEF450I (\S+) (.*?) - ABEND (\S+ \S+)')
 
 
@@ -69,11 +73,20 @@ def mount_tape(volser, tape, address='170'):
                 mount=(address, tape))
 
 
+def _cc(rc):
+    """IEFACTRT's 00000 -> 0000; an abend code stays as it is."""
+    return f'{int(rc):04d}' if rc.isdigit() else rc
+
+
 class Console:
-    def __init__(self, herc, tree, printer='prt00e.txt', loaded=None):
-        """loaded: {drive address: tape file} the configuration mounts."""
+    def __init__(self, herc, tree, printer='prt00e.txt', loaded=None, reader='12'):
+        """loaded: {drive address: tape file} the configuration mounts.
+        reader: the card reader jobs go to: a device address for devinit
+        (the starter system), or 'host:port' of a socket reader (the new
+        system's 00C, as Jay's submit.sh uses it)."""
         self.herc = herc
         self.tree = Path(tree)
+        self.reader = reader
         self.printer = self.tree / printer
         self.loaded = dict(loaded or {})     # drive address -> tape file on it
         self.pos = 0         # console line where the last job ended
@@ -126,11 +139,23 @@ class Console:
         self.herc.wait_for(r'\$HASP099 ALL AVAILABLE FUNCTIONS COMPLETE', timeout,
                            since=since, what='JES2 initialisation')
 
+    def submit(self, jcl):
+        if ':' not in self.reader:
+            self.herc.send(f'devinit {self.reader} {jcl}')
+            return
+        host, port = self.reader.rsplit(':', 1)
+        data = (self.tree / jcl).read_bytes()
+        try:
+            with socket.create_connection((host, int(port)), timeout=30) as sock:
+                sock.sendall(data)
+        except OSError as e:
+            raise BuildError(f'cannot submit {jcl} to the reader at {self.reader}: {e}') from e
+
     def _printer_size(self):
         return self.printer.stat().st_size if self.printer.exists() else 0
 
     def run_job(self, job, submit=None, rules=(), expect=None, timeout=900, since=None,
-                count=1, commands=(), steps=None, read_in=0):
+                count=1, commands=(), steps=None, read_in=0, held=False):
         """Run a job and check its step condition codes.
 
         The run ends when JES2 has purged as many jobs of this name as it
@@ -144,6 +169,11 @@ class Console:
         read_in: jobs of this name JES2 already holds (held jobs released
         with commands); the console is read from now on, so rules never see
         an earlier job's requests again.
+        held: the job's message class is held (Jay's MVS03 writes MSGCLASS=X,
+        to be looked at with QUEUE): JES2 never purges it and its IEF142I
+        lines never reach the printer. The job is done at $HASP395 ENDED,
+        and its step codes come from the IEFACTRT lines on the console
+        (generated system only, usermod JLM0001).
         commands: console commands sent first ($A to release a held job).
 
         submit: the JCL file for the reader; None when the job is already
@@ -161,14 +191,16 @@ class Console:
         else:
             pos = self.pos
         if submit:
-            self.herc.send(f'devinit 12 {submit}')
+            self.submit(submit)
         for cmd in commands:
             self.command(cmd)
         fired = set()
         purged_n = 0
         entered = re.compile(rf'\$HASP100 {re.escape(job)}\s+ON (?:READER\d+|INTRDR)')
         deadline = time.monotonic() + timeout
-        purged = re.compile(rf'\$HASP250 {re.escape(job)}\s+IS PURGED')
+        purged = re.compile(rf'\$HASP250 {re.escape(job)}\s+IS PURGED' if not held
+                            else rf'\$HASP395 {re.escape(job)}\s+ENDED')
+        acct = []
         compiled = [(re.compile(r.pattern), r) for r in rules]
         while True:
             base = pos
@@ -177,6 +209,9 @@ class Console:
             for i, line in enumerate(lines):
                 if entered.search(line):
                     read_in += 1
+                a = IEFACTRT.search(line)
+                if a and a.group(4) == job:
+                    acct.append((a.group(1), a.group(3)))
                 if purged.search(line):
                     purged_n += 1
                     if purged_n >= read_in:
@@ -184,6 +219,9 @@ class Console:
                         if purged_n != count:
                             raise BuildError(f'{job}: {purged_n} jobs of this name ran, '
                                              f'expected {count}')
+                        if held:
+                            return self._judge(job, [(n, _cc(rc)) for n, rc in acct],
+                                               expect or {}, steps, 'console IEFACTRT')
                         return self._check(job, start, expect or {}, steps)
                 nf = JOB_NOT_FOUND.search(line)
                 if nf:
@@ -243,8 +281,11 @@ class Console:
                 continue
             name = f'{m.group(2)} {m.group(3)}' if m.group(3) else m.group(2)
             steps.append((name, m.group(4)))
+        return self._judge(job, steps, expect, nsteps, f'{self.printer.name} IEF142I')
+
+    def _judge(self, job, steps, expect, nsteps, source):
         if not steps:
-            raise BuildError(f'{job}: no IEF142I step messages in {self.printer.name}')
+            raise BuildError(f'{job}: no step results ({source})')
         ran = {name for name, _ in steps}
         problems = [f'{s} expected {cc}, not run' for s, cc in expect.items() if s not in ran]
         for s, cc in steps:
@@ -262,19 +303,20 @@ class Console:
         info(f'  {job}: {summary}')
         return steps
 
-    def shutdown(self, timeout=300):
-        """Jay's sequence: $P JES2, Z EOD, QUIESCE.
+    def shutdown(self, before=(), timeout=300):
+        """Jay's sequence: the commands in before (P TSO, Z NET,QUICK on the
+        new system), $P JES2, Z EOD, QUIESCE.
 
-        Measured on the starter system (2026-11-13): JES2 ends with
-        IEF142I JES2 JES2 ... COND CODE 0000 and the release of
-        SYS1.HASPACE; QUIESCE puts the CPU into disabled wait ...0CCC.
+        JES2 has ended when the starter system shows IEF142I JES2 JES2 ...
+        or the generated system IEF404I JES2 - ENDED; each command waits
+        for a quiet console. QUIESCE puts the CPU into disabled wait ...0CCC.
         """
+        for cmd in before:
+            self.command(cmd)
         since = self.herc.mark()
         self.command('$p jes2')
-        self.herc.wait_for(r'IEF142I JES2 JES2 - STEP WAS EXECUTED - COND CODE 0000',
-                           timeout, since=since, what='JES2 end')
-        self.herc.wait_for(r'IEF285I\s+SYS1\.HASPACE\s+KEPT', timeout, since=since,
-                           what='JES2 spool release')
+        self.herc.wait_for(r'IEF142I JES2 JES2 - STEP WAS EXECUTED - COND CODE 0000'
+                           r'|IEF404I JES2 - ENDED', timeout, since=since, what='JES2 end')
         since = self.herc.mark()
         self.command('z eod')
         self.herc.wait_for(r'IEE334I HALT\s+EOD SUCCESSFUL', timeout, since=since,
