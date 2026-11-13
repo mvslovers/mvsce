@@ -1,0 +1,33 @@
+# Every external input of the build: one [[input]] per file.
+#
+# label   groups the files of one published version. Jay Moseley replaces
+#         his files in place under the same URL, so a version is named here,
+#         by us: jay-v<guide>-<yyyy-mm of the objects>. A changed file is a
+#         new label with new entries; existing entries are never edited.
+# md5     as Jay states it on the prerequisites page, checked as well.
+#
+# config/sysgen.toml selects the label a build uses.
+
+[[input]]
+label  = "jay-v8-2025-08"
+name   = "vs2StarterTapes.tar.gz"
+url    = "https://www.jaymoseley.com/hercules/downloads/archives/vs2StarterTapes.tar.gz"
+size   = 6666471
+sha256 = "171fca79b4df3c984885c33928c41714e3531574b87b508af728a81bba03d736"
+md5    = "7c12c99c387193c8650f8ef78b4771c3"
+
+[[input]]
+label  = "jay-v8-2025-08"
+name   = "vs2DistributionTapes.tar.gz"
+url    = "https://www.jaymoseley.com/hercules/downloads/archives/vs2DistributionTapes.tar.gz"
+size   = 17002758
+sha256 = "b16794844ac30c12daefc2b2e6fb0001a09a0d0b7437fc60ea5b2a465bf8be79"
+md5    = "ec9f1c8672bd406a4ff7bc00f139f5bc"
+
+[[input]]
+label  = "jay-v8-2025-08"
+name   = "mvsInstallationResources.tar.gz"
+url    = "https://www.jaymoseley.com/hercules/downloads/archives/mvsInstallationResources.tar.gz"
+size   = 18600249
+sha256 = "29600db65bea427d99a711147c81b2564ec078b6c86ebda940c7402759ba91fd"
+md5    = "129898e0f0881078448358553bc6b4c1"

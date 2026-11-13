@@ -1,6 +1,6 @@
 # build output and caches
 /build/
 /cache/
-/inputs/
+__pycache__/
 *.log
 .DS_Store

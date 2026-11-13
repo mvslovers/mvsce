@@ -1,0 +1,5 @@
+# Build configuration.
+
+[jay]
+# Which version of Jay Moseley's objects to build with (a label in inputs.lock).
+label = "jay-v8-2025-08"
