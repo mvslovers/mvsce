@@ -49,7 +49,7 @@ ENV DEBIAN_FRONTEND=noninteractive
 
 RUN apt-get update \
     && apt-get install -y --no-install-recommends \
-       python3 ca-certificates libltdl7 zlib1g libbz2-1.0 libregina3 \
+       python3 ca-certificates patch libltdl7 zlib1g libbz2-1.0 libregina3 \
     && rm -rf /var/lib/apt/lists/*
 
 COPY --from=hercules /opt/hercules /opt/hercules

@@ -44,6 +44,7 @@ def version(binary='hercules'):
 class Hercules:
     def __init__(self, config, cwd, log_path, binary='hercules'):
         self.lines = []
+        self.cwd = cwd
         self._cond = threading.Condition()
         self._log = open(log_path, 'a', encoding='utf-8', errors='replace')
         self._log.write(f'\n===== hercules -f {config} (in {cwd}) =====\n')
@@ -123,6 +124,29 @@ class Hercules:
                     raise BuildError(f'timeout after {timeout}s waiting for '
                                      f'{what or pattern.pattern}\n{self._tail_locked()}')
                 self._cond.wait(min(left, 1.0))
+
+    def wait_quiet(self, quiet=2.0, timeout=60):
+        """Wait until no new line has arrived for quiet seconds.
+
+        A command typed on the 3215-C while MVS is still writing to it can
+        go unanswered (measured in CI on 2026-11-13: Z EOD sent in the same
+        second as JES2's last deallocation messages got no IEE334I).
+        """
+        deadline = time.monotonic() + timeout
+        with self._cond:
+            seen = len(self.lines)
+            last = time.monotonic()
+            while True:
+                now = time.monotonic()
+                if len(self.lines) != seen:
+                    seen = len(self.lines)
+                    last = now
+                if now - last >= quiet:
+                    return
+                if now > deadline:
+                    raise BuildError(f'console not quiet for {quiet}s within {timeout}s\n'
+                                     f'{self._tail_locked()}')
+                self._cond.wait(min(quiet - (now - last), 0.5))
 
     def _tail_locked(self, n=40):
         return '\n'.join(self.lines[-n:])

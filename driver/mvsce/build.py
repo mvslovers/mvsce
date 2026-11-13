@@ -13,10 +13,11 @@ stage's key. A stage whose key is cached is restored instead of run.
 import hashlib
 import json
 import shutil
+import subprocess
 import time
 from pathlib import Path
 
-from . import dasd, hercules, inputs
+from . import dasd, hercules, inputs, mvs
 from .log import BuildError, info
 from .stages import STAGES
 
@@ -39,16 +40,33 @@ class Context:
         return hercules.Hercules(config, self.tree, log, binary=self.hercules_bin)
 
 
-def _driver_digest():
+def _driver_digest(root):
+    """The driver and our own jobs (jcl/): both shape every stage result."""
     h = hashlib.sha256()
-    for path in sorted(DRIVER.rglob('*.py')):
-        h.update(str(path.relative_to(DRIVER)).encode())
+    files = sorted(DRIVER.rglob('*.py')) + sorted((Path(root) / 'jcl').glob('*'))
+    for path in files:
+        h.update(path.name.encode())
         h.update(path.read_bytes())
     return h.hexdigest()
 
 
-def prepare(ctx, selected):
-    """Fetch and verify the inputs, extract them into a fresh tree."""
+def _patches(root, label):
+    return sorted((Path(root) / 'patches' / label).glob('*.patch'))
+
+
+def _apply_patches(ctx, patches):
+    """Our changes to Jay's files, kept per label; each must apply cleanly."""
+    for patch in patches:
+        r = subprocess.run(['patch', '-p1', '--forward', '--batch', '-i', str(patch)],
+                           cwd=ctx.tree, capture_output=True, text=True)
+        if r.returncode != 0:
+            raise BuildError(f'{patch.name} does not apply to this version of '
+                             f"Jay's objects:\n{r.stdout}{r.stderr}")
+        info(f'patched: {patch.name}')
+
+
+def prepare(ctx, selected, patches=()):
+    """Fetch and verify the inputs, extract them into a fresh tree, patch it."""
     if ctx.tree.exists():
         shutil.rmtree(ctx.tree)
     ctx.tree.mkdir(parents=True)
@@ -57,6 +75,7 @@ def prepare(ctx, selected):
         archive = inputs.fetch(item, ctx.cache)
         inputs.extract(archive, ctx.tree)
     _check_md5sums(ctx.tree / 'tape')
+    _apply_patches(ctx, patches)
     (ctx.tree / 'dasd').mkdir(exist_ok=True)
 
 
@@ -87,6 +106,28 @@ def _save(ctx, stage, key):
     if target.exists():
         shutil.rmtree(target)
     partial.rename(target)
+    (ctx.cache / 'stages' / f'{stage.NAME}.latest').write_text(target.name + '\n')
+    _prune(ctx, stage, keep=3)
+
+
+def _prune(ctx, stage, keep):
+    """Keep the newest results of a stage; each is a full set of DASD."""
+    results = sorted((d for d in (ctx.cache / 'stages').glob(f'{stage.NAME}-*')
+                      if d.is_dir() and not d.name.endswith('.part')),
+                     key=lambda d: d.stat().st_mtime, reverse=True)
+    for old in results[keep:]:
+        shutil.rmtree(old)
+
+
+def _restore_latest(ctx, stage):
+    """The last verified result of stage, whatever its key (--from)."""
+    pointer = ctx.cache / 'stages' / f'{stage.NAME}.latest'
+    if not pointer.exists():
+        raise BuildError(f'--from needs a cached result of {stage.NAME}; build it first')
+    source = ctx.cache / 'stages' / pointer.read_text().strip()
+    shutil.rmtree(ctx.tree / 'dasd')
+    shutil.copytree(source / 'dasd', ctx.tree / 'dasd')
+    return source.name
 
 
 def _restore(ctx, stage, key):
@@ -100,7 +141,14 @@ def _restore(ctx, stage, key):
     return True
 
 
-def build(root, work, cache, until=None, use_cache=True, hercules_bin='hercules'):
+def build(root, work, cache, until=None, start=None, use_cache=True,
+          hercules_bin='hercules', record=False):
+    """Run the stages up to until.
+
+    start: begin at this stage, on the last verified result of the stage
+    before it, whatever that was built from. For working on a stage; the
+    results are not cached, because their inputs are no longer known.
+    """
     root = Path(root)
     config = inputs.load_config(root / 'config' / 'sysgen.toml')
     label = config['jay']['label']
@@ -115,12 +163,34 @@ def build(root, work, cache, until=None, use_cache=True, hercules_bin='hercules'
             raise BuildError(f'unknown stage {until!r} (stages: {", ".join(names)})')
         stages = STAGES[:names.index(until) + 1]
 
+    names = [s.NAME for s in STAGES]
+    if start:
+        if start not in names:
+            raise BuildError(f'unknown stage {start!r} (stages: {", ".join(names)})')
+        first = names.index(start)
+        stages = [s for s in stages if names.index(s.NAME) >= first]
+        if not stages:
+            raise BuildError(f'--from {start} is after --until {until}')
+
+    patches = _patches(root, label)
     ctx = Context(root, work, cache, hercules_bin)
-    prepare(ctx, selected)
+    prepare(ctx, selected, patches)
 
     key = hashlib.sha256('\n'.join(
-        [label, herc_version, _driver_digest()] + [i.sha256 for i in selected]
+        [label, herc_version, _driver_digest(root)] + [i.sha256 for i in selected]
+        + [hashlib.sha256(p.read_bytes()).hexdigest() for p in patches]
     ).encode()).hexdigest()
+
+    if start and names.index(start) > 0:
+        before = STAGES[names.index(start) - 1]
+        info(f'--from {start}: using the last result of {before.NAME} '
+             f'({_restore_latest(ctx, before)}); nothing will be cached')
+        use_cache = False
+
+    if record:
+        mvs.record = []
+        use_cache = False
+        info('--record: condition codes are recorded, not enforced; nothing is cached')
 
     for stage in stages:
         key = hashlib.sha256(f'{key}\n{stage.NAME}'.encode()).hexdigest()
@@ -137,4 +207,7 @@ def build(root, work, cache, until=None, use_cache=True, hercules_bin='hercules'
              f'{time.monotonic() - started:.0f}s')
         if use_cache:
             _save(ctx, stage, key)
+    if record and mvs.record:
+        raise BuildError('--record: condition codes differing from the expectation:\n  '
+                         + '\n  '.join(mvs.record))
     info(f'done: {", ".join(s.NAME for s in stages)}; DASD in {ctx.tree / "dasd"}')
