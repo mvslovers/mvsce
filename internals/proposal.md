@@ -1,7 +1,8 @@
 # mvsce — analysis of the current sysgen and proposal
 
-Status: **proposal, not decided** (2026-11-13). Section 7 lists the decisions
-that are open.
+Status: **accepted in principle** (2026-11-13): new build on Jay's V8, sysgen
+first, everything else afterwards. Section 7 records the decisions, section 8
+what is still open.
 
 Goal: build an MVS 3.8j system by Jay Moseley's sysgen procedure, and modify
 it the way the mvslovers ecosystem needs, in a build that we maintain
@@ -102,116 +103,141 @@ already in V8.
 
 ## 2. Options
 
-**A. Fork MVS-sysgen/sysgen and fix it incrementally.** Keeps the history and
-stays mergeable with upstream. But it keeps the V7 base, the monolithic driver
-and the MVP installs, and most of what we want (pinning, SMP installs, V8,
-batched usermods, verification) touches every part of `sysgen.py`. Without a
-licence a fork is also legally open.
+**A. Fork MVS-sysgen/sysgen and fix it incrementally.** Keeps the V7 base, the
+monolithic driver and the MVP installs; most of what we want touches every
+part of `sysgen.py`, and upstream has no licence.
 
-**B. New build on Jay's V8, with MVS/CE as the reference (recommended).** Jay's
-procedure is the specification; upstream's repository is a source of lessons
-(the cold-start reasoning in `custjobs_ipl`, the abend check in
-`check_maxcc`, the RAKF EBCDIC submission) and gets credited. Compatibility
-with what the ecosystem runs on today is kept by an explicit contract
-(section 4), not by sharing code.
+**B. New build on Jay's V8 (chosen).** Jay's procedure is the specification.
+Upstream's repository is a source of lessons (the cold-start reasoning in
+`custjobs_ipl`, the abend check in `check_maxcc`, the EBCDIC submission) and
+gets credited; no code is copied. Green field: no upstream remote, no
+merging back.
 
-**C. Keep patching the image** (today's `mvs-docker/mvsce`). Cheapest now, but
-every upstream release has to be re-patched, and SMP history (old RAKF,
-missing UY16532 accept, products outside SMP) cannot be fixed from outside.
+**C. Keep patching the image** (today's `mvs-docker/mvsce`). Every upstream
+release has to be re-patched, and SMP history cannot be fixed from outside.
 
 ---
 
-## 3. Proposed design (option B)
+## 3. Design
 
 ### 3.1 Principles
 
 1. **Every input pinned.** One lockfile, `inputs.lock`, names every external
-   input with URL, version, size and SHA-256: Jay's three archives, SYSCPK,
-   RAKF, BREXX/370 + ZMG0001, UY16532, Rob's usermods, our product packages.
-   The build fetches and verifies; nothing comes from `HEAD` or `latest`.
-   Large binaries are not in git.
-2. **Stages with cached results.** The build is a chain of stages; each
-   stage's output is the compressed DASD set, keyed by a hash over its
-   definition, its inputs and the previous stage's key. Changing a product
-   rebuilds only the last stages (minutes, not an hour).
+   input with URL, size and SHA-256 (section 3.2). The build fetches and
+   verifies; nothing comes from `HEAD` or `latest`. No binaries in git.
+2. **Stages with cached results.** Each stage's output is the compressed DASD
+   set, keyed by a hash over its definition, its inputs and the previous
+   stage's key. A change rebuilds only from the stage it touches.
 3. **The SMP inventory is the result.** Each stage declares what must hold
    afterwards (SYSMODs `APP`/`ACC`, members in target libraries, data sets on
    volumes) and checks it with `LIST` jobs. A return code says the job ran;
    the manifest says the work happened.
 4. **Fail fast, no retry loop.** Every wait has a timeout and a reason; on
    timeout the build stops with the console tail, the printer tail and the
-   stage name. A retry is an explicit, logged decision per IPL, at most once.
-5. **Products by SMP from their releases**, as `setup_tk5.py` does, never by
-   copying load modules.
-6. **Configuration as data.** Users, RAKF profiles, volumes, device
-   addresses, ports and the release identity live in TOML, not in the driver.
+   stage name. No automatic retry. A problem that recurs gets found and
+   fixed, not repeated.
+5. **Configuration as data.** Users, volumes, device addresses, ports and the
+   release identity live in TOML, not in the driver.
+6. **Small steps.** Phase 1 is the sysgen alone. Nothing is added on top
+   until it runs automated and reliably (section 3.3).
 
-### 3.2 Stages
+### 3.2 Which version of Jay's sysgen
 
-| Stage | Content | Source |
+Jay publishes his objects under fixed URLs and replaces the files in place
+(`mvsInstallationResources.tar.gz` was last updated in August 2025; the name
+carries no version). A pin by URL alone would silently change the build. So:
+
+- `inputs.lock` has one entry per archive with a **label** of our choosing
+  (`jay-v8-2025-08`), the URL, size and SHA-256. The page's md5 is recorded
+  too, as the cross-check against Jay's own statement.
+- `config/sysgen.toml` selects the label to build with (`jay = "jay-v8-2025-08"`).
+  A new label means a new entry; old labels stay, so an old release can be
+  rebuilt.
+- The fetch fails with a clear message when Jay's file no longer matches
+  ("Jay has published new objects: add a new label"), never with a broken
+  build halfway through.
+- Every archive we have built with is kept in a build cache (GitHub Actions
+  cache, local `cache/`), so a rebuild does not depend on the file still
+  being on Jay's site. Whether we also publish copies is part of the licence
+  question (section 8).
+- A scheduled CI job compares Jay's files with the lock once a week and opens
+  an issue when they change.
+
+Our own changes to Jay's jobs are patches applied on top of the selected
+label (`patches/<label>/…`), so a new Jay version shows exactly which of them
+still apply.
+
+### 3.3 Phases and stages
+
+**Phase 1 — the sysgen (now).** Jay V8, chapters 2 to 5, automated:
+
+| Stage | Content | Jay V8 |
 |---|---|---|
-| S1 starter | MVS 3.7 starter system | Jay V8, chapter 2 |
-| S2 dlibs | SMP4, distribution libraries | Jay V8, chapter 3 |
-| S3 sysgen | Stage 1/2, JES2, usermods (one jobstream), ICKDSF R13 | Jay V8, chapter 4 |
-| S4 base | Volumes PUB000/PUB001, catalogs, SYSCPK, RPF/QUEUE/REVIEW/DATE, TSO users | Jay V8, chapter 5 |
-| S5 platform | RAKF 2.0.0 (SMP), `ACCEPT UY16532`, BREXX/370 3.1.0 (TBRX310) + ZMG0001, LNKLST via MS00100 | #65 points 1, 3, 4 |
-| S6 mods | Further usermods, sizing (e.g. `SYS1.CMDLIB`, 93 % full on MVS/CE 3.0.0). Rob's ZP60038/ZP60017 reworks are not here: they replace the V8 members before S3 | #65 points 5, 6 |
-| S7 products | UFSD, FTPD, HTTPD, mvsMF by SMP, procedures, parmlib, autostart | #65 point 2 |
-| S8 extras | ISPF, NJE38, MVP — each optional | upstream steps 9–12 |
-| S9 finalize | COMMND00, shutdown procedures, release identity, clean warm start, full verification | upstream step 14 |
+| S1 starter | MVS 3.7 starter system | chapter 2 |
+| S2 dlibs | SMP4, distribution libraries | chapter 3 |
+| S3 sysgen | Stage 1/2, JES2, PTFs (`sysgen06`), **usermods as Jay's one jobstream** (`usermods.jcl`), ICKDSF R13 | chapter 4 |
+| S4 base | PUB000/PUB001, catalogs, SYSCPK, RPF/QUEUE/REVIEW/DATE, TSO users | chapter 5 |
+| S5 finalize | Clean shutdown, warm-startable system, release identity, verification | chapter 6 |
 
-S1–S4 change rarely; their cached output is what makes the rest fast.
+The usermods run as Jay ships them, in one jobstream. Upstream applied them
+one IPL at a time because of past sysgen problems; we start with the single
+jobstream and find out ourselves whether, and where, that breaks. If a
+usermod needs a separate IPL, the stage splits there and the reason is
+written down.
 
-### 3.3 Driver
+**Phase 2 — everything on top (later, discussed when phase 1 runs).**
+Default: everything MVS/CE 3.0.0 ships today, in current versions where
+possible, plus the ecosystem's products and SDSF, plus the content of issue
+#65. Known points for that discussion:
 
-Python 3, no dependencies outside the standard library, small modules instead
-of one class: Hercules process and console, card reader submit (ASCII/EBCDIC),
-job-result parser (the printer file, including abends), SMP inventory checker,
-stage runner, cache. One printer file per stage, emptied at its start, so a
-job's output is never confused with a previous stage's. Runs in a container
-with Hercules built at a pinned Hyperion commit, as `mvs-docker/mvsce`
-already does, so it works the same on macOS (Docker or Apple
-`container`), on `mvsdev` and in GitHub Actions.
+- RAKF in its current version (2.0.0, by SMP);
+- BREXX/370 3.1.0 + ZMG0001 (with `ACCEPT UY16532`), replacing the old
+  BREXX;
+- MVP is built on an old BREXX; it is to be replaced by a native tool, so
+  package management is a topic of its own;
+- UFSD, FTPD, HTTPD, mvsMF, SDSF by SMP from their releases;
+- Rob Prins' ZP60038/ZP60017 reworks (they replace the V8 members before
+  S3, see 1.3), `SYS1.CMDLIB` sizing;
+- ISPF, NJE38, RPF and the rest of today's MVS/CE contents.
 
-### 3.4 Outputs
+### 3.4 Driver
+
+Python 3, standard library only, small modules instead of one class:
+Hercules process and console, card reader submit (ASCII/EBCDIC), job-result
+parser (the printer file, including abends), SMP inventory checker, stage
+runner, cache. One printer file per stage, emptied at its start. Runs in a
+container with Hercules built at a pinned Hyperion commit, as
+`mvs-docker/mvsce` already does, so it works the same on macOS (Docker or
+Apple `container`), on `mvsdev` and in GitHub Actions.
+
+### 3.5 Outputs
 
 - Release tarball: DASD (CCKD), Hercules configuration, start script,
-  `MANIFEST` (component versions, SMP inventory, SHA-256 of every DASD file).
-- OCI image `ghcr.io/mvslovers/mvsce` built from that tarball.
-  `mvs-docker/mvsce` then drops the Hercules replacement, the RAKF swap and
-  the load-library patching.
+  `MANIFEST` (Jay label, component versions, SMP inventory, SHA-256 of every
+  DASD file).
+- Later: an OCI image built from that tarball, which `mvs-docker/mvsce` then
+  uses as its base.
 - `SYS1.PARMLIB(RELEASE)` carries the version and the git commit.
 
-### 3.5 Tests
+### 3.6 Tests
 
 - Per stage: the declared SMP/data set manifest.
-- Smoke test after S9: IPL, JES2 warm start, TSO logon (`mbt target ping
-  --tso`), RAKF login, the STCs up.
-- Acceptance: `mbt test --mvs` of UFSD, FTPD, HTTPD, mvsMF and BREXX/370
-  against the built system in a throwaway container.
+- After S5: IPL, JES2 warm start, TSO logon (`mbt target ping --tso`).
 - Reproducibility: two builds from the same commit give the same SMP
   inventory.
+- Phase 2 adds `mbt test --mvs` of the installed products.
 
 ---
 
-## 4. Compatibility contract with MVS/CE 3.0.0
+## 4. Compatibility with MVS/CE 3.0.0
 
 The ecosystem's tests, the mbt default target and the `mvsce` image assume
-MVS/CE 3.0.0. Before anything changes, milestone M0 measures and writes down:
-
-- volume serials and device addresses (`conf/local.cnf`: MVSRES, MVS000,
-  PAGE00, SPOOL1, PUB000, PUB001, SYSCPK, SMP000, WORK00, WORK01, sort
-  volumes), device types;
-- users and passwords (IBMUSER, MVSCE01, MVSCE02), RAKF groups and profiles;
-- ports (3270, 3505 ASCII, 3506 EBCDIC, 8888 Hercules HTTP);
-- JES2 classes and initiators, MSGCLASS conventions (`mvsce` image: class A,
-  msgclass H, volume WORK00);
-- SVC slots in use (MVS/CE: 240–255; registry in `svc.md`);
-- the complete SMP inventory (CDS and ACDS);
-- proclib behaviour (`DYNPROC` vs. `#DYP`), LNKLST, APF list.
-
-Each difference between that baseline and the new build is either kept
-compatible or listed as a deliberate change in the release notes.
+MVS/CE 3.0.0. Before phase 2, the unmodified `mainframed767/mvsce:3.0.0`
+image is measured: volume serials and device addresses, users, ports, JES2
+classes and MSGCLASS conventions, SVC slots (MVS/CE: 240–255), the complete
+SMP inventory, proclib behaviour, LNKLST and APF list, and upstream's changes
+to Jay's jobs (1.4). Each difference is either made compatible or listed as
+a deliberate change. Phase 1 builds Jay's system as Jay describes it.
 
 ---
 
@@ -219,12 +245,11 @@ compatible or listed as a deliberate change in the release notes.
 
 | | Content | Done when |
 |---|---|---|
-| M0 | Baseline from the unmodified `mainframed767/mvsce:3.0.0` image (not ours: its RAKF is swapped): SMP inventory, volumes, generated devices, parmlib/proclib, users, ports; work through the porting backlog (1.4) | contract (section 4) written |
-| M1 | Lockfile, driver, cache; S1–S3 from V8 | two builds, identical SMP inventory |
-| M2 | S4–S5 | RAKF, BREXX/370 3.1.0, ZMG0001 verified; UY16532 `ACC` |
-| M3 | S6–S7 | all of #65 in; diff against M0 resolved |
-| M4 | S8–S9, CI, release, OCI image; `mvs-docker/mvsce` switches its base | `mbt test --mvs` green for all products on the new image |
-| M5 | Documentation (`docs/`), release page, announcement | — |
+| M1 | Repository, lockfile with Jay label, container, driver skeleton; S1 | starter system built in CI |
+| M2 | S2–S3 (usermods in one jobstream) | SMP inventory of S3 matches the manifest |
+| M3 | S4–S5, stage cache | two builds, identical SMP inventory; TSO logon |
+| M4 | CI: build on push, release tarball, weekly Jay check | release `v0.1.0` (Jay's system, automated) |
+| — | Phase 2 planning: scope, package management, MVS/CE 3.0.0 baseline | discussed with the maintainer |
 
 ---
 
@@ -232,39 +257,40 @@ compatible or listed as a deliberate change in the release notes.
 
 ```
 mvsce/
-  inputs.lock          every external input: url, version, size, sha256
-  config/              users.toml, rakf-profiles, volumes.toml, release.toml
+  inputs.lock          every external input: label, url, size, sha256
+  config/              sysgen.toml (Jay label), users.toml, volumes.toml
   stages/s1-starter/   stage.toml (devices, jobs, expected CCs, manifest) + JCL
   ...
-  stages/s9-finalize/
-  usermods/            our own and third-party usermods not on Jay's tape
+  patches/<label>/     our changes to Jay's jobs, per Jay version
   driver/              Python package (hercules, reader, jobs, smp, cache)
-  container/           Dockerfile for build environment and runtime image
+  container/           Dockerfile for the build environment
   docs/                user documentation
   internals/           this file, measurements, releasing.md
 ```
 
 ---
 
-## 7. Open decisions
+## 7. Decisions (2026-11-13)
 
-1. **Name.** "MVS/CE" (MVS Community Edition) is upstream's product name and
-   `mainframed767/mvsce` its image. Using the same name for a different build
-   invites confusion in both directions. Options: agree with the upstream
-   maintainer that this becomes the continuation of MVS/CE, or keep the repo
-   name `mvsce` and give the product its own name.
-2. **Licence and redistribution.** Upstream has no LICENSE, so its code cannot
-   be copied without permission; option B avoids copying it. Jay Moseley's
-   objects and the usermods (Greg Price, Rob Prins, Jay, others) are
-   redistributed by many projects, but terms should be confirmed — at least
-   whether we fetch them from the original sites (pinned by hash) or mirror
-   them as release assets.
-3. **Scope of S8.** Which of ISPF (Wally), NJE38, MVP, RPF, KICKS belong in
-   the default system.
-4. **Relation to upstream.** Offer the changes back (issue #65 stays the
-   channel) or continue independently.
-5. **"Our ideas" beyond #65.** So far the modification backlog is issue #65
-   plus the porting backlog (1.4). Further changes (TSO/JES2 defaults, more
-   usermods, volume layout, 3390 residence) need a list from the maintainer.
-6. **Project registration.** GitHub repository `mvslovers/mvsce`, entry in the
-   root `CLAUDE.md` project list and in `status.md`.
+1. **New build**, green field, no upstream remote. The maintainer will show
+   the result to the MVS/CE maintainer later; whether it continues in his
+   repository or in this one is decided then.
+2. **Name: MVS/CE.** It is meant as an alternative for MVS/CE, not a new
+   product. Repository `mvslovers/mvsce`, public.
+3. **Sysgen first.** Phase 1 is Jay's sysgen automated; everything else is
+   discussed afterwards (section 3.3).
+4. **Usermods in one jobstream**, as Jay ships them; problems are found and
+   fixed ourselves.
+5. **Default scope of phase 2**: everything MVS/CE ships today, in current
+   versions where possible, plus the ecosystem's products, SDSF and issue #65.
+6. **Upstream's Docker repository is ignored**; `mvs-docker/mvsce` switches to
+   this build later.
+
+## 8. Open
+
+1. **Licence** of this repository and redistribution of Jay's objects and the
+   usermods. Fetching from Jay's site is unproblematic; publishing copies
+   (for reproducibility) needs clarification. Postponed.
+2. **Package management** (successor to MVP). Phase 2.
+3. **Further own changes** beyond #65 (TSO/JES2 defaults, volume layout, 3390
+   residence). Phase 2.

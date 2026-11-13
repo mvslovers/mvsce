@@ -1,9 +1,9 @@
 # mvsce
 
 A reproducible build of MVS 3.8j on Hercules, following Jay Moseley's sysgen
-procedure, with the modifications the mvslovers products need.
+procedure, automated and reproducible: an alternative build of MVS/CE.
 
-**Status:** planning. Nothing is built yet; the proposal is in
+**Status:** phase 1, automating the sysgen. Nothing is built yet; the proposal is in
 [`internals/proposal.md`](internals/proposal.md).
 
 ## Credits
