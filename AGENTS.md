@@ -12,6 +12,9 @@ sysgen goes in before phase 1 is done.
 
 ## Rules specific to this project
 
+- **Never mention AI or any AI tool** — not in commits, issues, PRs,
+  comments, code, docs or release texts.
+
 - **Every external input goes through `inputs.lock`** (label, URL, size,
   SHA-256). Never `git clone` a HEAD or download a `latest` release in the
   build.
