@@ -50,8 +50,10 @@ def main(argv=None):
             for s in STAGES:
                 print(f'{s.NAME:4} {s.TITLE}')
         elif args.command == 'fetch':
-            label = inputs.load_config(ROOT / 'config' / 'sysgen.toml')['jay']['label']
-            for item in inputs.select(inputs.load_lock(ROOT / 'inputs.lock'), label):
+            config = inputs.load_config(ROOT / 'config' / 'sysgen.toml')
+            lock = inputs.load_lock(ROOT / 'inputs.lock')
+            for item in (inputs.select(lock, config['jay']['label'])
+                         + inputs.select(lock, config['syscpk']['label'])):
                 info(f'{inputs.fetch(item, args.cache)}: verified')
         else:
             build.build(ROOT, args.work, args.cache, until=args.until, start=args.start,

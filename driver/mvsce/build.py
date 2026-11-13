@@ -5,7 +5,9 @@ installation objects and tapes extracted into one directory, dasd/ beside
 them. Hercules runs there with Jay's configuration files, so the paths in
 them hold unchanged.
 
-Each stage's result is the content of dasd/. It is cached under a key
+Each stage's result is the content of dasd/ and conf/ (Jay changes his
+Hercules configuration along the way, S4 does it with him). It is cached
+under a key
 that covers everything the result depends on: the stage's source, the
 driver, the selected inputs, the Hercules version and the previous
 stage's key. A stage whose key is cached is restored instead of run.
@@ -22,6 +24,10 @@ from .log import BuildError, info
 from .stages import STAGES
 
 DRIVER = Path(__file__).resolve().parent
+
+# What a stage leaves behind for the next: the volumes and the Hercules
+# configuration.
+STATE = ('dasd', 'conf')
 
 
 class Context:
@@ -73,7 +79,7 @@ def prepare(ctx, selected, patches=()):
     ctx.logs.mkdir(parents=True, exist_ok=True)
     for item in selected:
         archive = inputs.fetch(item, ctx.cache)
-        inputs.extract(archive, ctx.tree)
+        inputs.extract(archive, ctx.tree / item.into)
     _check_md5sums(ctx.tree / 'tape')
     _apply_patches(ctx, patches)
     (ctx.tree / 'dasd').mkdir(exist_ok=True)
@@ -99,7 +105,8 @@ def _save(ctx, stage, key):
     partial = target.with_name(target.name + '.part')
     if partial.exists():
         shutil.rmtree(partial)
-    shutil.copytree(ctx.tree / 'dasd', partial / 'dasd')
+    for part in STATE:
+        shutil.copytree(ctx.tree / part, partial / part)
     (partial / 'stage.json').write_text(json.dumps(
         {'stage': stage.NAME, 'key': key, 'saved': time.strftime('%Y-%m-%dT%H:%M:%S')},
         indent=2) + '\n')
@@ -125,8 +132,7 @@ def _restore_latest(ctx, stage):
     if not pointer.exists():
         raise BuildError(f'--from needs a cached result of {stage.NAME}; build it first')
     source = ctx.cache / 'stages' / pointer.read_text().strip()
-    shutil.rmtree(ctx.tree / 'dasd')
-    shutil.copytree(source / 'dasd', ctx.tree / 'dasd')
+    _copy_state(source, ctx.tree)
     return source.name
 
 
@@ -136,9 +142,17 @@ def _restore(ctx, stage, key):
         return False
     if json.loads((source / 'stage.json').read_text()).get('key') != key:
         return False
-    shutil.rmtree(ctx.tree / 'dasd')
-    shutil.copytree(source / 'dasd', ctx.tree / 'dasd')
+    _copy_state(source, ctx.tree)
     return True
+
+
+def _copy_state(source, tree):
+    for part in STATE:
+        if not (source / part).is_dir():
+            raise BuildError(f'{source} has no {part}/; it predates conf/ in stage '
+                             f'results: rebuild the stage before it')
+        shutil.rmtree(tree / part)
+        shutil.copytree(source / part, tree / part)
 
 
 def build(root, work, cache, until=None, start=None, use_cache=True,
@@ -152,9 +166,11 @@ def build(root, work, cache, until=None, start=None, use_cache=True,
     root = Path(root)
     config = inputs.load_config(root / 'config' / 'sysgen.toml')
     label = config['jay']['label']
-    selected = inputs.select(inputs.load_lock(root / 'inputs.lock'), label)
+    lock = inputs.load_lock(root / 'inputs.lock')
+    selected = inputs.select(lock, label) + inputs.select(lock, config['syscpk']['label'])
     herc_version = hercules.version(hercules_bin)
-    info(f'Jay Moseley objects: {label}; {herc_version}')
+    info(f'Jay Moseley objects: {label}; SYSCPK: {config["syscpk"]["label"]}; '
+         f'{herc_version}')
 
     stages = STAGES
     if until:

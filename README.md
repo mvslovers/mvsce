@@ -3,10 +3,12 @@
 A reproducible build of MVS 3.8j on Hercules, following Jay Moseley's sysgen
 procedure, automated and reproducible: an alternative build of MVS/CE.
 
-**Status:** phase 1, automating the sysgen. Stages S1 (starter system), S2
-(SMP4 and the distribution libraries) and S3 (system generation, PTFs,
-usermods, ICKDSF) are built, about eight minutes on a laptop; the plan is
-in [`internals/proposal.md`](internals/proposal.md).
+**Status:** phase 1, automating the sysgen. Jay Moseley's whole procedure
+runs automated, about twelve minutes on a laptop: S1 starter system, S2
+SMP4 and the distribution libraries, S3 system generation, PTFs, usermods
+and ICKDSF, S4 the first IPL and customisation of the new system, S5 a
+normal start with TSO accepting logons. Releases are next; the plan is in
+[`internals/proposal.md`](internals/proposal.md).
 
 ## Building
 
