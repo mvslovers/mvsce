@@ -2,14 +2,14 @@
 
 Extends `~/repos/mvs/CLAUDE.md`.
 
-Builds an MVS 3.8j system by Jay Moseley's procedure (V8) and adds the
-ecosystem's modifications. Successor to the MVS/CE build of
-MVS-sysgen/sysgen, but not a fork of its code (no licence upstream).
+Planned: build an MVS 3.8j system by Jay Moseley's procedure (V8, proposed) and add the
+ecosystem's modifications, as a successor to the MVS/CE build of
+MVS-sysgen/sysgen without forking its code (no licence upstream). None of this is decided yet.
 
 Status: planning. The design and the open decisions are in
 `internals/proposal.md`; read it before any work here.
 
-## Rules specific to this project
+## Rules specific to this project (proposed, until the proposal is accepted)
 
 - **Every external input goes through `inputs.lock`** (URL, version, size,
   SHA-256). Never `git clone` a HEAD or download a `latest` release in the

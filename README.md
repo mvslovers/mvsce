@@ -1,7 +1,7 @@
 # mvsce
 
 A reproducible build of MVS 3.8j on Hercules, following Jay Moseley's sysgen
-procedure (V8), with the modifications the mvslovers products need.
+procedure, with the modifications the mvslovers products need.
 
 **Status:** planning. Nothing is built yet; the proposal is in
 [`internals/proposal.md`](internals/proposal.md).

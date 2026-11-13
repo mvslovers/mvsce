@@ -22,11 +22,11 @@ Analysed at `6672504` (2026-08-01, the v3.0.0 release).
 | Base | Jay Moseley's **V7** installation objects (`gz/mvsInstallationResources.tar.gz`, md5 `f1892f1c…`, imported 2021-04-25). Jay has published **V8** since 2024 (objects updated August 2025, md5 `129898e0…`). The starter and distribution tapes are identical in both (md5 `7c12c99c…`, `ec9f1c86…`, checked against Jay's page). |
 | Driver | `sysgen.py`, 2954 lines, one class. Starts Hercules as a child process and drives it by matching strings on stdout/stderr (`wait_for_string`), feeding JCL through `devinit` and the socket readers 3505/3506. |
 | Flow | 14 steps, 38 DASD checkpoints. Every checkpoint is a full copy of all DASD files (`backup_dasd`/`restore_dasd`). |
-| Usermods | 58 usermods, **one IPL, one job, one shutdown and one full DASD backup each** (`step_05_usermods`). Jay's own procedure applies them in one jobstream. |
+| Usermods | 56 usermod jobs in `step_05_usermods`, **one IPL, one job, one shutdown and one full DASD backup each**; `DYNPROC` and `ZP60041` run in later steps. Jay's own procedure applies them in one jobstream. |
 | Products | BREXX from a checked-in `xmi/brexx.xmi`; RAKF by `git clone` of `MVS-sysgen/RAKF` **HEAD** plus `rakf-tools.xmit` from the rolling `latest` release; MVP by `git clone` of `MVS-sysgen/MVP` **HEAD**; ISPF, NJE38, UFSD, FTPD, HTTPD, mvsMF, OPNTERSE through MVP (not SMP). Nothing is pinned by version or hash. |
 | Success check | `check_maxcc` reads the 1403 printer file for IEF142I/IEF450I. Catches abends since v3.0.0. Nothing checks the SMP inventory, so "the job ran" stands in for "the work happened". |
-| Robustness | The documented way to build is `until ./sysgen.py --CONTINUE; do …; done`, because Hercules "may fail". CI runs the same loop. Of the last 12 CI runs, 5 were cancelled after about 6 hours (GitHub's job limit); the successful ones took 38–46 minutes. |
-| Hercules | CI builds in `mainframed767/hercules:4.7.0`. The released image carries 4.10.0.11668 (March 2026). Both predate SDL-Hercules-390/hyperion#889 (lost wakeup in the 3215-C console, which can hang an IPL). **Hypothesis, not measured:** the 6-hour hangs are that bug. |
+| Robustness | The documented way to build is `until ./sysgen.py --CONTINUE; do …; done`, because Hercules "may fail". CI runs the same loop. Of the last 12 CI runs, 5 were cancelled after about 6 hours (GitHub's job limit); the successful ones took 38–46 minutes. The last one (2026-10-19, PR #64) shows why: step 8 asks the rolling RAKF `latest` release for `rakf-tools.xmit`, the release had only `install_rakf.jcl`, `sysgen.py` raised, and the `until` loop restarted it **1835 times** in 10-second cycles until GitHub cancelled the job. An unpinned input plus an unconditional retry turns a deterministic error into a six-hour hang. (The other four cancelled runs were not examined.) |
+| Hercules | CI builds in `mainframed767/hercules:4.7.0`. The released image carries 4.10.0.11668 (March 2026). Both predate SDL-Hercules-390/hyperion#889 (lost wakeup in the 3215-C console, which can hang an IPL), which our `mvsce` image fixes by building Hyperion at a pinned commit. |
 | Platform | Debian/Ubuntu only (README). Issue #62: segfault with a current Hyperion on Ubuntu 24.04 because of `--externalgui`. |
 | Repository | 341 MB, 176 MB of it `.git`. Tapes kept twice (`gz/*.tar.gz` and `tape/*.het`), plus `dasd/syscpk.3350`, PDF manuals. **No LICENSE file.** |
 | Activity | Commits per year: 253 (2021), 52, 45, 34, 10 (2025), 18 (2026). Our issue #65 ("Asking for 3.1", 2026-11-03) is unanswered; issues from 2022 are open. |
@@ -58,25 +58,45 @@ V8 objects (`mvsInstallationResources.tar.gz`, md5 `129898e0f0881078448358553bc6
 - Customization installs RPF, QUEUE, REVIEW and DATE from `tape/tsoaps.het`
   (`mvs03.jcl`); V7 had separate review/rpf/queue jobs.
 
-Usermods in V8's `usermods.jcl` (`SELECT` operands), compared with
-`sysgen.py`'s list. **Preliminary**: taken from the JCL and the extracted
-tape; milestone M0 replaces this with an SMP inventory diff.
+USERMOD ids: V8 from the `SELECT` operands of `usermods.jcl`; MVS/CE from
+the `++USERMOD` statements in upstream's `usermods/*.jcl` (ZP60025 is an
+EBCDIC file and was checked separately). **Preliminary**: what is in the
+JCL, not what is applied; milestone M0 replaces this with an SMP inventory
+diff.
 
 | Only in MVS/CE 3.0.0 | In both | Only in V8 |
 |---|---|---|
-| `DYNPROC` (dynamic proclibs), `SYZJ2001`, `UZ61025`, `ZUM0007`, `ZUM0008`, `ZP60041`–`ZP60043` | `AY12275`, `JLM0001`–`JLM0004`, `SLB0001`, `SLB0002`, `SYZM001`, `TIST801`, `TJES801`, `TMVS804`, `TMVS816`, `TNIP800`, `TTSO801`, `VS49603`, `WM00017`, `ZP60001`–`ZP60009`, `ZP60011`–`ZP60022`, `ZP60025`–`ZP60039` | `#DYP001`–`#DYP005`, `#DYPDMY` (dynamic proclibs, other implementation), `JLM0005`, `JLM0006`, `M096220`, **`MS00100`**, `RP00001`–`RP00003`, `TMVS817`, `ZP60024`, `ZP60040`, `ZUM0015` |
+| `SYZJ201`, `SYZJ202`, `ZP60041`–`ZP60043`, `ZUM0007`, `ZUM0008` (and the PTF `UZ61025`) | `#DYP001`–`#DYP005`, `#DYPDMY` (dynamic proclibs; upstream's `DYNPROC.jcl`), `AY12275`, `JLM0001`–`JLM0004`, `SLB0001`, `SLB0002`, `SYZM001`, `TIST801`, `TJES801`, `TMVS804`, `TMVS816`, `TMVS817`, `TNIP800`, `TTSO801`, `VS49603`, `WM00017`, `ZP60001`–`ZP60009`, `ZP60011`–`ZP60022`, `ZP60025`–`ZP60040` | `JLM0005`, `JLM0006` (century fixes), `M096220`, **`MS00100`**, `RP00001`–`RP00003`, `ZP60024`, `ZUM0015` |
 
-Three findings that matter for issue #65:
+Findings that matter for issue #65 (Rob Prins' packages downloaded from
+prince-webdesign.nl on 2026-11-13 and read):
 
-- **V8 already carries Rob Prins' MS00100**: `++USERMOD(MS00100)
-  REWORK(20230906)`, with the `(******)` = system residence volume rework in
-  its history. The receive-once trap from #65 does not arise on a V8 base.
-- V8's ZP60038 is `REWORK(20190727)` and ZP60017 the original. Rob's
-  November 2026 reworks of both carry later rework dates, so SMP accepts them
-  over the V8 level (to be confirmed in M2).
-- Dynamic proclibs differ (`DYNPROC` vs. `#DYP…`). Anything in the ecosystem
-  that relies on MVS/CE's proclib behaviour must be checked against the
-  `#DYP` implementation.
+- **V8 already carries Rob's MS00100**: V8's tape and Rob's package both say
+  `++USERMOD(MS00100) REWORK(20230906)`, with the `(******)` = system
+  residence volume change in its history. The receive-once trap from #65
+  does not arise on a V8 base.
+- V8 has ZP60038 at `REWORK(20190727)` and ZP60017 without a rework; Rob's
+  packages are `REWORK(20261106)` and `REWORK(20261108)`. Whether SMP4
+  receives a higher rework over an applied SYSMOD is **not verified** — and
+  does not need to be: a build from scratch replaces the two members in
+  `SYS1.USERMODS` before the first RECEIVE (stage S3), so only Rob's level
+  is ever received.
+- UY16532 is on V8's `ptfs.het` and is applied (not accepted) by
+  `sysgen06.jcl` as a prerequisite of ZP60014 — the same state #65 point 1
+  describes for MVS/CE. The `ACCEPT` has to be added either way.
+- ZUM0007/ZUM0008 (MVS/CE) and ZUM0015, JLM0005, JLM0006 (V8) are all Y2K or
+  century fixes; which set wins is decided by the M0 diff, not by count.
+
+### 1.4 What MVS/CE changed in Jay's V7 jobs
+
+Diff of upstream `jcl/` against V7's (changed lines): `sysgen04` 4845
+(parmlib, proclib, logon and VTAM members), `sysgen05` 380, `smpjob03` 184,
+`mvs00` 69, `mvs01` 25, `sysgen01` 11 (among them the stage 1 console at
+009: 3215 instead of a 3277-2), `sysgen02` 11, `sysgen00` 8. Upstream also
+raised VTAM buffer pools and added `vtoc.jcl`, `stage2.jcl` and a
+`sysgen05a` template. **This is the porting backlog onto V8**: each change
+is either taken over (and listed in the contract, section 4), dropped, or
+already in V8.
 
 ---
 
@@ -135,7 +155,7 @@ missing UY16532 accept, products outside SMP) cannot be fixed from outside.
 | S3 sysgen | Stage 1/2, JES2, usermods (one jobstream), ICKDSF R13 | Jay V8, chapter 4 |
 | S4 base | Volumes PUB000/PUB001, catalogs, SYSCPK, RPF/QUEUE/REVIEW/DATE, TSO users | Jay V8, chapter 5 |
 | S5 platform | RAKF 2.0.0 (SMP), `ACCEPT UY16532`, BREXX/370 3.1.0 (TBRX310) + ZMG0001, LNKLST via MS00100 | #65 points 1, 3, 4 |
-| S6 mods | Rob's ZP60038 and ZP60017 reworks, further usermods, sizing (e.g. `SYS1.CMDLIB`, 93 % full on MVS/CE 3.0.0) | #65 points 5, 6 |
+| S6 mods | Further usermods, sizing (e.g. `SYS1.CMDLIB`, 93 % full on MVS/CE 3.0.0). Rob's ZP60038/ZP60017 reworks are not here: they replace the V8 members before S3 | #65 points 5, 6 |
 | S7 products | UFSD, FTPD, HTTPD, mvsMF by SMP, procedures, parmlib, autostart | #65 point 2 |
 | S8 extras | ISPF, NJE38, MVP — each optional | upstream steps 9–12 |
 | S9 finalize | COMMND00, shutdown procedures, release identity, clean warm start, full verification | upstream step 14 |
@@ -148,9 +168,9 @@ Python 3, no dependencies outside the standard library, small modules instead
 of one class: Hercules process and console, card reader submit (ASCII/EBCDIC),
 job-result parser (the printer file, including abends), SMP inventory checker,
 stage runner, cache. One printer file per stage, emptied at its start, so a
-job's output is never confused with a previous stage's. Runs in the pinned
-Hercules container (`ghcr.io/mvslovers/hercules` at the Hyperion commit the
-`mvsce` image already uses), so it works the same on macOS (Docker or Apple
+job's output is never confused with a previous stage's. Runs in a container
+with Hercules built at a pinned Hyperion commit, as `mvs-docker/mvsce`
+already does, so it works the same on macOS (Docker or Apple
 `container`), on `mvsdev` and in GitHub Actions.
 
 ### 3.4 Outputs
@@ -199,7 +219,7 @@ compatible or listed as a deliberate change in the release notes.
 
 | | Content | Done when |
 |---|---|---|
-| M0 | Baseline: run upstream v3.0.0 in our pinned container (time, hangs: tests the #889 hypothesis), extract inventory and configuration | contract (section 4) written; hang hypothesis measured |
+| M0 | Baseline from the unmodified `mainframed767/mvsce:3.0.0` image (not ours: its RAKF is swapped): SMP inventory, volumes, generated devices, parmlib/proclib, users, ports; work through the porting backlog (1.4) | contract (section 4) written |
 | M1 | Lockfile, driver, cache; S1–S3 from V8 | two builds, identical SMP inventory |
 | M2 | S4–S5 | RAKF, BREXX/370 3.1.0, ZMG0001 verified; UY16532 `ACC` |
 | M3 | S6–S7 | all of #65 in; diff against M0 resolved |
@@ -243,5 +263,8 @@ mvsce/
    the default system.
 4. **Relation to upstream.** Offer the changes back (issue #65 stays the
    channel) or continue independently.
-5. **Project registration.** GitHub repository `mvslovers/mvsce`, entry in the
+5. **"Our ideas" beyond #65.** So far the modification backlog is issue #65
+   plus the porting backlog (1.4). Further changes (TSO/JES2 defaults, more
+   usermods, volume layout, 3390 residence) need a list from the maintainer.
+6. **Project registration.** GitHub repository `mvslovers/mvsce`, entry in the
    root `CLAUDE.md` project list and in `status.md`.
