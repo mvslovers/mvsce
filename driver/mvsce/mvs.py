@@ -18,11 +18,18 @@ from pathlib import Path
 
 from .log import BuildError, info
 
+# Measuring mode (--record): condition codes that differ from the
+# expectation are collected here instead of stopping the build. The build
+# fails at the end all the same and caches nothing.
+record = None
+
 WTOR = re.compile(r'\*(\d+) (\S+)')
 IEF142 = re.compile(r'IEF142I (\S+) (\S+)(?: (\S+))? - STEP WAS EXECUTED - COND CODE (\d{4})')
 # MVS repeats a mount request nobody has answered after some minutes;
 # then the job waits for a tape no rule mounts.
 MOUNT_PENDING = re.compile(r'IGF991E\s+MOUNT PENDING')
+# A JES2 command naming a job JES2 does not have.
+JOB_NOT_FOUND = re.compile(r'\$HASP000 (\S+)\s+JOB NOT FOUND')
 # K = demount: the drive is empty afterwards.
 DEMOUNT = re.compile(r'(?:IEF234E|IEC502E) K ([0-9A-F]{3}),')
 IEF450 = re.compile(r'IEF450I (\S+) (.*?) - ABEND (\S+ \S+)')
@@ -60,11 +67,12 @@ def mount_tape(volser, tape, address='170'):
 
 
 class Console:
-    def __init__(self, herc, tree, printer='prt00e.txt'):
+    def __init__(self, herc, tree, printer='prt00e.txt', loaded=None):
+        """loaded: {drive address: tape file} the configuration mounts."""
         self.herc = herc
         self.tree = Path(tree)
         self.printer = self.tree / printer
-        self.loaded = {}     # drive address -> tape file on it
+        self.loaded = dict(loaded or {})     # drive address -> tape file on it
         self.pos = 0         # console line where the last job ended
 
     def mount(self, address, tape):
@@ -77,6 +85,9 @@ class Console:
         self.loaded[address] = tape
 
     def command(self, text):
+        """An operator command. Sent on a quiet console only: unlike a WTOR
+        reply, nothing in MVS is waiting to read it (see Hercules.wait_quiet)."""
+        self.herc.wait_quiet()
         self.herc.send('/' + text)
 
     def reply(self, msgid, text, timeout=300, since=None):
@@ -111,8 +122,19 @@ class Console:
     def _printer_size(self):
         return self.printer.stat().st_size if self.printer.exists() else 0
 
-    def run_job(self, job, submit=None, rules=(), expect=None, timeout=900, since=None):
-        """Run one job and check its step condition codes.
+    def run_job(self, job, submit=None, rules=(), expect=None, timeout=900, since=None,
+                count=1, commands=(), steps=None):
+        """Run a job and check its step condition codes.
+
+        The run ends when JES2 has purged as many jobs of this name as it
+        has read in ($HASP100 ... ON READER1 or ON INTRDR): Jay's decks
+        often carry several jobs of one name, and some submit a follow-on
+        job of the same name through the internal reader (SYSGEN04,
+        SMPJOB07, FDZ1D02). Their steps are checked together.
+        count: how many such jobs there must be; a different number is an
+        error (a job that submits one more than expected, say).
+        steps: how many steps they must have run together, where Jay says.
+        commands: console commands sent first ($A to release a held job).
 
         submit: the JCL file for the reader; None when the job is already
         on its way in: attached with the reader, or submitted by the job
@@ -130,7 +152,11 @@ class Console:
             pos = self.pos
         if submit:
             self.herc.send(f'devinit 12 {submit}')
+        for cmd in commands:
+            self.command(cmd)
         fired = set()
+        read_in = purged_n = 0
+        entered = re.compile(rf'\$HASP100 {re.escape(job)}\s+ON (?:READER\d+|INTRDR)')
         deadline = time.monotonic() + timeout
         purged = re.compile(rf'\$HASP250 {re.escape(job)}\s+IS PURGED')
         compiled = [(re.compile(r.pattern), r) for r in rules]
@@ -139,9 +165,20 @@ class Console:
             lines = self.herc.lines[pos:]
             pos += len(lines)
             for i, line in enumerate(lines):
+                if entered.search(line):
+                    read_in += 1
                 if purged.search(line):
-                    self.pos = base + i + 1
-                    return self._check(job, start, expect or {})
+                    purged_n += 1
+                    if purged_n >= read_in:
+                        self.pos = base + i + 1
+                        if purged_n != count:
+                            raise BuildError(f'{job}: {purged_n} jobs of this name ran, '
+                                             f'expected {count}')
+                        return self._check(job, start, expect or {}, steps)
+                nf = JOB_NOT_FOUND.search(line)
+                if nf:
+                    raise BuildError(f'{job}: JES2 has no job {nf.group(1)} '
+                                     f'({line.strip()!r})')
                 if MOUNT_PENDING.search(line):
                     raise BuildError(f'{job}: {line.strip()!r}: no rule mounts the tape '
                                      f'asked for\n{self.herc.tail()}')
@@ -183,7 +220,7 @@ class Console:
                 raise BuildError(f'{job}: not finished after {timeout}s\n{self.herc.tail()}')
             time.sleep(0.2)
 
-    def _check(self, job, start, expect):
+    def _check(self, job, start, expect, nsteps=None):
         with open(self.printer, 'rb') as f:
             f.seek(start)
             text = f.read().decode('ascii', 'replace')
@@ -201,9 +238,14 @@ class Console:
             want = expect.get(s, '0000')
             if cc != want:
                 problems.append(f'{s} ended {cc}, expected {want}')
+        if nsteps is not None and len(steps) != nsteps:
+            problems.append(f'{len(steps)} steps ran, expected {nsteps}')
         summary = ' '.join(f'{s}={cc}' for s, cc in steps)
         if problems:
-            raise BuildError(f'{job}: ' + '; '.join(problems) + f' ({summary})')
+            if record is None:
+                raise BuildError(f'{job}: ' + '; '.join(problems) + f' ({summary})')
+            record.append(f'{job}: ' + '; '.join(problems))
+            info(f'  RECORDED {job}: ' + '; '.join(problems))
         info(f'  {job}: {summary}')
         return steps
 

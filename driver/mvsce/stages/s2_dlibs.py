@@ -34,21 +34,19 @@ def tape(job, volser, path):
     return [allocate_tape(job, path), mount_tape(volser, path)]
 
 # job, JCL, operator rules, expected condition codes (steps not named: 0000),
-# timeout in seconds. Codes as Jay's text gives them.
+# timeout in seconds, number of jobs of that name, number of steps (where
+# Jay gives it). Codes as Jay's text gives them.
 JOBS = [
-    ('SMPJOB00', 'jcl/smpjob00.jcl', [], {'IEHPROGM': '0008', 'SMP DLBUCL': '0008'}, 600),
-    ('SMPJOB01', 'jcl/smpjob01.jcl', tape('SMPJOB01', 'MVS38J', 'tape/zdlib1.het'), {}, 1800),
-    ('SMPJOB02', 'jcl/smpjob02.jcl', tape('SMPJOB02', 'PTFS20', 'tape/ptfs.het'), {}, 1800),
-    ('SMPJOB03', 'jcl/smpjob03.jcl', [], {'SMP DLBUCL4': '0004'}, 3600),
-    ('SMPJOB04', 'jcl/smpjob04.jcl', tape('SMPJOB04', 'J90012', 'tape/j90012.het'), {}, 1800),
-    ('SMPJOB05', 'jcl/smpjob05.jcl', [], {'SMP DLBUCL': '0004'}, 1800),
-    ('SMPJOB06', 'jcl/smpjob06.jcl', [], {'SMP DLBUCL': '0004'}, 1800),
+    ('SMPJOB00', 'jcl/smpjob00.jcl', [], {'IEHPROGM': '0008', 'SMP DLBUCL': '0008'}, 600, 1, None),
+    ('SMPJOB01', 'jcl/smpjob01.jcl', tape('SMPJOB01', 'MVS38J', 'tape/zdlib1.het'), {}, 1800, 1, None),
+    ('SMPJOB02', 'jcl/smpjob02.jcl', tape('SMPJOB02', 'PTFS20', 'tape/ptfs.het'), {}, 1800, 1, None),
+    ('SMPJOB03', 'jcl/smpjob03.jcl', [], {'SMP DLBUCL4': '0004'}, 3600, 1, None),
+    ('SMPJOB04', 'jcl/smpjob04.jcl', tape('SMPJOB04', 'J90012', 'tape/j90012.het'), {}, 1800, 1, None),
+    ('SMPJOB05', 'jcl/smpjob05.jcl', [], {'SMP DLBUCL': '0004'}, 1800, 1, None),
+    ('SMPJOB06', 'jcl/smpjob06.jcl', [], {'SMP DLBUCL': '0004'}, 1800, 1, None),
     # SMPJOB07 submits a second SMPJOB07 (LINK UTILITIES) through the
     # internal reader: Jay's nine steps are 3 + 6.
-    ('SMPJOB07', 'jcl/smpjob07.jcl', [], {'ASM': '0000', 'IDCAMS': '0000',
-                                          'IEBGENER': '0000'}, 600),
-    ('SMPJOB07', None, [U], {'LK LINK': '0000', 'COPY': '0000', 'ASM': '0000',
-                             'LKED': '0000'}, 1800),
+    ('SMPJOB07', 'jcl/smpjob07.jcl', [U], {}, 1800, 2, 9),
 ]
 
 
@@ -83,8 +81,8 @@ def run(ctx):
         since = herc.mark()
         con.ipl('150', [('IEA101A', ''), ('$HASP426', 'noreq')], ready=False)
         con.run_job('SMPMOUNT', None, [reply_rule('IEF166D', 'y')], {}, 600, since=since)
-        for job, jcl, rules, expect, timeout in JOBS:
-            con.run_job(job, jcl, rules, expect, timeout)
+        for job, jcl, rules, expect, timeout, count, steps in JOBS:
+            con.run_job(job, jcl, rules, expect, timeout, count=count, steps=steps)
         con.shutdown()
 
 

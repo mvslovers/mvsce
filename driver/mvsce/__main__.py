@@ -36,6 +36,9 @@ def main(argv=None):
     b.add_argument('--from', dest='start',
                    help='first stage to run, on the last cached result of the one '
                         'before (for development; nothing is cached)')
+    b.add_argument('--record', action='store_true',
+                   help='measure: report differing condition codes instead of '
+                        'stopping (the build still fails; nothing is cached)')
     b.add_argument('--no-cache', action='store_true',
                    help='run every stage, neither restore nor save results')
     sub.add_parser('stages', help='list the stages')
@@ -52,7 +55,8 @@ def main(argv=None):
                 info(f'{inputs.fetch(item, args.cache)}: verified')
         else:
             build.build(ROOT, args.work, args.cache, until=args.until, start=args.start,
-                        use_cache=not args.no_cache, hercules_bin=args.hercules)
+                        use_cache=not args.no_cache, hercules_bin=args.hercules,
+                        record=args.record)
     except BuildError as e:
         fail(str(e))
         return 1

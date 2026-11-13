@@ -17,7 +17,7 @@ import subprocess
 import time
 from pathlib import Path
 
-from . import dasd, hercules, inputs
+from . import dasd, hercules, inputs, mvs
 from .log import BuildError, info
 from .stages import STAGES
 
@@ -140,7 +140,7 @@ def _restore(ctx, stage, key):
 
 
 def build(root, work, cache, until=None, start=None, use_cache=True,
-          hercules_bin='hercules'):
+          hercules_bin='hercules', record=False):
     """Run the stages up to until.
 
     start: begin at this stage, on the last verified result of the stage
@@ -185,6 +185,11 @@ def build(root, work, cache, until=None, start=None, use_cache=True,
              f'({_restore_latest(ctx, before)}); nothing will be cached')
         use_cache = False
 
+    if record:
+        mvs.record = []
+        use_cache = False
+        info('--record: condition codes are recorded, not enforced; nothing is cached')
+
     for stage in stages:
         key = hashlib.sha256(f'{key}\n{stage.NAME}'.encode()).hexdigest()
         ctx.stage = stage.NAME
@@ -200,4 +205,7 @@ def build(root, work, cache, until=None, start=None, use_cache=True,
              f'{time.monotonic() - started:.0f}s')
         if use_cache:
             _save(ctx, stage, key)
+    if record and mvs.record:
+        raise BuildError('--record: condition codes differing from the expectation:\n  '
+                         + '\n  '.join(mvs.record))
     info(f'done: {", ".join(s.NAME for s in stages)}; DASD in {ctx.tree / "dasd"}')
