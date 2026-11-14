@@ -1,16 +1,16 @@
 # Build environment: Hercules (SDL Hyperion at a pinned commit) and Python.
 #
-# HERCULES_REF is Hyperion develop (5648e0e7, with the 3215-C console fixes
-# #889 and #893 and the X'75' TCP/IP fixes) plus the fix for PCI raised
-# twice (SDL-Hercules-390/hyperion#906, PR #907), on the mvslovers fork
-# until it is merged: without it JES2 4.0 on the starter system loses
-# blocks of 24 print lines (internals/print-loss.md). hercules-helper is
+# HERCULES_REF is Hyperion develop 7607b082: the merge of
+# SDL-Hercules-390/hyperion#907, which fixes the PCI raised twice
+# (#906; without it JES2 4.0 on the starter system loses blocks of 24
+# print lines, internals/print-loss.md), on top of the 3215-C console
+# fixes #889 and #893 and the X'75' TCP/IP fixes. hercules-helper is
 # pinned as well. Built with a portable -O3 instead of hercules-helper's
 # -march=native, which would SIGILL on a host whose CPU lacks the build
 # machine's instructions.
 
-ARG HERCULES_REF=34c1bc40e534381bf77c474c5bb37520104fe2b6
-ARG HERCULES_REPO=https://github.com/mvslovers/hyperion.git
+ARG HERCULES_REF=7607b082de6abfdcf0582bfa90dd2292a94cc721
+ARG HERCULES_REPO=https://github.com/SDL-Hercules-390/hyperion.git
 ARG HELPER_REF=6b981ba2fbde86c7146e46608797d8c85c1835d3
 
 FROM debian:trixie AS hercules
