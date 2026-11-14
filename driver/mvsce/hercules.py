@@ -42,9 +42,10 @@ def version(binary='hercules'):
 
 
 class Hercules:
-    def __init__(self, config, cwd, log_path, binary='hercules'):
+    def __init__(self, config, cwd, log_path, binary='hercules', on_exit=None):
         self.lines = []
         self.cwd = cwd
+        self.on_exit = on_exit
         self._cond = threading.Condition()
         self._log = open(log_path, 'a', encoding='utf-8', errors='replace')
         self._log.write(f'\n===== hercules -f {config} (in {cwd}) =====\n')
@@ -197,3 +198,5 @@ class Hercules:
                 self.proc.wait(timeout=10)
         self._reader.join(timeout=10)
         self._log.close()
+        if self.on_exit:
+            self.on_exit()
