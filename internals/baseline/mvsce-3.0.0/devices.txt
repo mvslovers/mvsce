@@ -1,0 +1,29 @@
+000C      3505     localhost:3505 sockdev autopad trunc ascii eof
+001A      3505     localhost:3506 sockdev autopad trunc ebcdic eof
+001C      3505     *
+000D      3525     punchcards/pch00d.txt ebcdic
+000E      1403     printers/prt00e.txt
+000F      3211     printers/prt00f.txt
+001D      3525     punchcards/pch01d.txt ascii
+0100.4    3420     *
+0310.4    3420     *
+0150      3350     DASD/mvsres.3350
+0151      3350     DASD/mvs000.3350
+0152      3350     DASD/page00.3350
+0153      3350     DASD/spool1.3350
+0180      3380     DASD/pub000.3380
+0190      3390     DASD/pub001.3390 cu=3880
+0220      2314     DASD/sortw1.2314
+0221      2314     DASD/sortw2.2314
+0222      2314     DASD/sortw3.2314
+0223      2314     DASD/sortw4.2314
+0224      2314     DASD/sortw5.2314
+0225      2314     DASD/sortw6.2314
+0250      3350     DASD/smp000.3350
+0251      3350     DASD/work00.3350
+0252      3350     DASD/work01.3350
+0253      3350     DASD/syscpk.3350
+0010      3270     console
+0009      3215-C   /
+0015      1403     mvslog.txt
+0400.32   3270     

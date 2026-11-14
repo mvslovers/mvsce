@@ -1,0 +1,10 @@
+//COMPRESS PROC LIB='SYS2.LINKLIB',SOUT='*'
+//* ***************************************************************** *
+//* COMPRESS LIBRARY IN PLACE                                         *
+//* ***************************************************************** *
+//COPY     EXEC PGM=IEBCOPY
+//SYSPRINT DD  SYSOUT=&SOUT
+//SYSIN    DD  DUMMY
+//SYSUT1   DD  DISP=SHR,DSN=&LIB
+//SYSUT2   DD  DISP=SHR,DSN=&LIB
+//SYSUT3   DD  UNIT=SYSDA,SPACE=(CYL,(5,5))

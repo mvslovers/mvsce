@@ -1,0 +1,6 @@
+//*-------------------------------------------------------------------*
+//*            SET CONSOLE PFKEYS FROM SYS1.PARMLIB MEMBER            *
+//*-------------------------------------------------------------------*
+//SETPFKEY PROC M=
+//SETPFKEY EXEC PGM=SETPFKEY
+//SYSIN     DD DSN=SYS1.PARMLIB(SETPFK&M),DISP=SHR

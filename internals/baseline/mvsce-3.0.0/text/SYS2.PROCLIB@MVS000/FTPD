@@ -1,0 +1,30 @@
+//FTPD     PROC M=FTPDPRM0,
+//            D='SYS2.PARMLIB'
+//*
+//* FTPD - FTP Server STC Procedure
+//*
+//* Installation:
+//*   Copy to SYS2.PROCLIB(FTPD)
+//*   Copy config member to SYS2.PARMLIB(FTPDPRM0)
+//*
+//* FTPD runs from MVSLOVER.LOAD via STEPLIB (never from a LNKLST
+//* library -- modules copied into one after IPL abend S0C4 at
+//* fetch once the library takes a new extent).
+//*
+//* Starting:    /S FTPD
+//*              /S FTPD,M=FTPDPRM1       (alternate config member)
+//*              /S FTPD,D='MY.PARMLIB'   (alternate parmlib dataset)
+//* Commands:    /F FTPD,STATS
+//*              /F FTPD,SESSIONS
+//*              /F FTPD,CONFIG
+//*              /F FTPD,HELP
+//*              /F FTPD,SHUTDOWN
+//* Stopping:    /P FTPD
+//*
+//FTPD     EXEC PGM=FTPD,REGION=8M,TIME=1440
+//STEPLIB  DD  DISP=SHR,DSN=MVSLOVER.FTPD.LOADLIB
+//SYSUDUMP DD  SYSOUT=*
+//STDOUT   DD  SYSOUT=*
+//STDERR   DD  SYSOUT=*
+//FTPDPRM  DD  DSN=&D(&M),DISP=SHR,FREE=CLOSE
+//HASPCKPT DD  DISP=SHR,DSN=SYS1.HASPCKPT

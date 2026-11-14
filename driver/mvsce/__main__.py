@@ -10,7 +10,7 @@ import signal
 import sys
 from pathlib import Path
 
-from . import build, inputs, package
+from . import build, inputs, inventory, package
 from .log import BuildError, fail, info
 from .stages import STAGES
 
@@ -45,6 +45,14 @@ def main(argv=None):
     pk = sub.add_parser('package', help='make the release package from a complete build')
     pk.add_argument('--version', required=True, help='release version, MAJOR.MINOR.PATCH')
     pk.add_argument('--dist', default=str(ROOT / 'dist'), help='output directory (default: dist/)')
+    iv = sub.add_parser('inventory', help='write the inventory of a system (no IPL)')
+    iv.add_argument('--system', required=True, help='system directory (holds the config and DASD)')
+    iv.add_argument('--config', required=True, help='Hercules configuration, relative to --system')
+    iv.add_argument('--out', required=True, help='output directory (replaced)')
+    ivd = sub.add_parser('inventory-diff', help='Markdown report: how inventory B differs from A')
+    ivd.add_argument('a'); ivd.add_argument('b')
+    ivd.add_argument('--labels', nargs=2, default=['A', 'B'])
+    ivd.add_argument('--out', help='write the report here (default: stdout)')
     sub.add_parser('stages', help='list the stages')
     sub.add_parser('fetch', help='fetch and verify the inputs of the selected label')
     args = p.parse_args(argv)
@@ -53,6 +61,12 @@ def main(argv=None):
         if args.command == 'stages':
             for s in STAGES:
                 print(f'{s.NAME:4} {s.TITLE}')
+        elif args.command == 'inventory-diff':
+            text = inventory.diff(args.a, args.b, args.out, *args.labels)
+            if not args.out:
+                print(text, end='')
+        elif args.command == 'inventory':
+            inventory.inventory(args.system, args.config, args.out)
         elif args.command == 'package':
             package.package(ROOT, args.work, args.dist, args.version, hercules_bin=args.hercules)
         elif args.command == 'fetch':

@@ -1,0 +1,13 @@
+//JES2     PROC M=JES2PM00,
+//             N=SYS1,
+//             L=LINKLIB,
+//             U=3350,
+//             N1=SYS1,
+//             P=PARMLIB
+//IEFPROC  EXEC PGM=HASJES20,
+//             TIME=1440,
+//             DPRTY=(15,15)
+//STEPLIB  DD  UNIT=&U,DISP=SHR,DSN=&N..&L
+//PROC00   DD  DSN=&N..PROCLIB,DISP=SHR
+//HASPPARM DD  DSN=&N1..&P(&M),DISP=SHR
+//HASPLIST DD  DDNAME=IEFRDER

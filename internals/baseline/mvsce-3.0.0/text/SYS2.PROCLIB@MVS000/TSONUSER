@@ -1,0 +1,153 @@
+//*
+//* PROCEDURE TO ADD NEW TSO USER ID TO SYS1.UADS AND CREATE STANDARD
+//* SET OF USER FILES FOR THE NEW USER ID
+//*
+//TSONUSER PROC ID=,              TSO USER ID                          +
+//             PW='*',            TSO USER PASSWORD                    +
+//             AN='*',            ACCOUNT NUMBER                       +
+//             PR='IKJACCNT',     LOGON PROCEDURE                      +
+//             MS='NOLIM',        REGION LIMIT: MAXSIZE(N)/NOLIM       +
+//             OP='NOOPER',       OPERATOR CMNDS: OPER/NOOPER          +
+//             AC='NOACCT',       ACCOUNT CMD: ACCT/NOACCT             +
+//             JC='JCL',          JOB CONTROL: JCL/NOJCL               +
+//             MT='NOMOUNT',      TAPE MOUNT: MOUNT/NOMOUNT            +
+//             SZ='SIZE(8192)',   DEFAULT REGION SIZE                  +
+//             UN='UNIT(SYSDA)'   DYNAMIC ALLOCATION UNIT
+//*
+//* IF ANY FILES WE WILL CREATE FOR NEW USER'S ID EXIST, DELETE THEM
+//*
+//DEL01    EXEC PGM=IEFBR14
+//CLIST    DD  DSN=&ID..CLIST,DISP=(MOD,DELETE,DELETE),
+//             UNIT=SYSDA,VOL=SER=PUB000,
+//             SPACE=(CYL,0),DCB=SYS1.CMDPROC
+//CNTL     DD  DSN=&ID..CNTL,DISP=(MOD,DELETE,DELETE),
+//             UNIT=SYSDA,VOL=SER=PUB000,
+//             SPACE=(CYL,0),DCB=SYS1.MACLIB
+//SOURCE   DD  DSN=&ID..SOURCE,DISP=(MOD,DELETE,DELETE),
+//             UNIT=SYSDA,VOL=SER=PUB000,
+//             SPACE=(CYL,0),DCB=SYS1.MACLIB
+//LOAD     DD  DSN=&ID..LOAD,DISP=(MOD,DELETE,DELETE),
+//             UNIT=SYSDA,VOL=SER=PUB000,
+//             SPACE=(CYL,0),DCB=SYS1.LINKLIB
+//USREXEC  DD  DSN=&ID..EXEC,DISP=(MOD,DELETE,DELETE),
+//             VOL=SER=PUB000,
+//             UNIT=SYSDA,
+//             SPACE=(CYL,0),DCB=SYS1.MACLIB
+//*
+//* ALLOCATE STANDARD FILES FOR NEW USER'S ID
+//*
+//AL02     EXEC PGM=IEFBR14
+//CLIST    DD  DSN=&ID..CLIST,DISP=(,KEEP,DELETE),
+//             UNIT=SYSDA,VOL=SER=PUB000,
+//             SPACE=(CYL,(1,1,20)),DCB=SYS1.CMDPROC
+//CNTL     DD  DSN=&ID..CNTL,DISP=(,KEEP,DELETE),
+//             UNIT=SYSDA,VOL=SER=PUB000,
+//             SPACE=(CYL,(1,1,20)),DCB=SYS1.MACLIB
+//SOURCE   DD  DSN=&ID..SOURCE,DISP=(,KEEP,DELETE),
+//             UNIT=SYSDA,VOL=SER=PUB000,
+//             SPACE=(CYL,(1,1,20)),DCB=SYS1.MACLIB
+//LOAD     DD  DSN=&ID..LOAD,DISP=(,KEEP,DELETE),
+//             UNIT=SYSDA,VOL=SER=PUB000,
+//             SPACE=(CYL,(1,1,20)),DCB=SYS1.LINKLIB
+//USEREXEC  DD  DSN=&ID..EXEC,DISP=(,KEEP,DELETE),
+//             UNIT=SYSDA,VOL=SER=PUB000,
+//             SPACE=(CYL,(1,1,20)),DCB=SYS1.MACLIB
+//*
+//* GENERATE COMMAND FILE TO CREATE NEW USER'S PROFILE
+//*
+//PW03     EXEC PGM=PSU002,PARM=('\',
+//             ' PROFILE NOPREFIX\',
+//             ' ACCOUNT\',
+//             '   SYNC')
+//STEPLIB  DD  DSN=SYSC.LINKLIB,DISP=SHR
+//SYSOUT   DD  DSN=&&ACCOUNT,DISP=(,PASS),
+//             UNIT=SYSDA,SPACE=(TRK,(15)),
+//             DCB=(RECFM=FB,LRECL=80,BLKSIZE=3120)
+//PW04     EXEC PGM=PSU002,PARM=('\',
+//             '   DELETE (&ID.)\',
+//             '   ADD (&ID. &PW. &AN. &PR.) +\',
+//             '       &MS. +')
+//STEPLIB  DD  DSN=SYSC.LINKLIB,DISP=SHR
+//SYSOUT   DD  DSN=&&ACCOUNT,DISP=(MOD,PASS)
+//PW05     EXEC PGM=PSU002,PARM=('\',
+//             '       &OP. +\',
+//             '       &AC. +\',
+//             '       &JC. +\',
+//             '       &MT. +')
+//STEPLIB  DD  DSN=SYSC.LINKLIB,DISP=SHR
+//SYSOUT   DD  DSN=&&ACCOUNT,DISP=(MOD,PASS)
+//PW06     EXEC PGM=PSU002,PARM=('\',
+//             '       &SZ. +\',
+//             '       &UN.\',
+//             '   LIST (&ID.)\',
+//             '   SYNC\',
+//             '   END')
+//STEPLIB  DD  DSN=SYSC.LINKLIB,DISP=SHR
+//SYSOUT   DD  DSN=&&ACCOUNT,DISP=(MOD,PASS)
+//*
+//* CREATE NEW USER'S PROFILE
+//*
+//TSO07    EXEC PGM=IKJEFT01,REGION=4096K
+//SYSUADS   DD DSN=SYS1.UADS,DISP=SHR
+//SYSLBC    DD DSN=SYS1.BRODCAST,DISP=SHR
+//SYSTSPRT  DD SYSOUT=*
+//SYSTSIN   DD DSN=&&ACCOUNT,DISP=(OLD,DELETE)
+//*
+//* GENERATE COMMAND FILE TO 1) DEFINE ALIAS FOR NEW USER'S ID
+//* AND 2) DEFINE CATALOG ENTRIES FOR FILES FOR NEW USER
+//*
+//PW08     EXEC PGM=PSU002,PARM=('\',
+//             ' DELETE &ID..* NOSCRATCH \',
+//             ' DELETE &ID. ALIAS \',
+//             ' SET LASTCC = 0')
+//STEPLIB  DD  DSN=SYSC.LINKLIB,DISP=SHR
+//SYSOUT   DD  DSN=&&IDCAMS,DISP=(,PASS),
+//             UNIT=SYSDA,SPACE=(TRK,(15)),
+//             DCB=(RECFM=FB,LRECL=80,BLKSIZE=3120)
+//PW09     EXEC PGM=PSU002,PARM=('\',
+//             ' SET MAXCC = 0\',
+//             ' DEFINE ALIAS (NAME(&ID.) RELATE(UCPUB000))')
+//STEPLIB  DD  DSN=SYSC.LINKLIB,DISP=SHR
+//SYSOUT   DD  DSN=&&IDCAMS,DISP=(MOD,PASS)
+//PW10     EXEC PGM=PSU002,PARM=('\',
+//             ' DEFINE NONVSAM (NAME(&ID..CLIST) DEVT(3380) ',
+//             'VOL(PUB000))')
+//STEPLIB  DD  DSN=SYSC.LINKLIB,DISP=SHR
+//SYSOUT   DD  DSN=&&IDCAMS,DISP=(MOD,PASS)
+//PW11     EXEC PGM=PSU002,PARM=('\',
+//             ' DEFINE NONVSAM (NAME(&ID..CNTL) DEVT(3380) ',
+//             'VOL(PUB000))')
+//STEPLIB  DD  DSN=SYSC.LINKLIB,DISP=SHR
+//SYSOUT   DD  DSN=&&IDCAMS,DISP=(MOD,PASS)
+//*
+//PW12     EXEC PGM=PSU002,PARM=('\',
+//             ' DEFINE NONVSAM (NAME(&ID..SOURCE) DEVT(3380) ',
+//             'VOL(PUB000))')
+//STEPLIB  DD  DSN=SYSC.LINKLIB,DISP=SHR
+//SYSOUT   DD  DSN=&&IDCAMS,DISP=(MOD,PASS)
+//*
+//PW13     EXEC PGM=PSU002,PARM=('\',
+//             ' DEFINE NONVSAM (NAME(&ID..LOAD) DEVT(3380) ',
+//             'VOL(PUB000))')
+//STEPLIB  DD  DSN=SYSC.LINKLIB,DISP=SHR
+//SYSOUT   DD  DSN=&&IDCAMS,DISP=(MOD,PASS)
+//*
+//PW14     EXEC PGM=PSU002,PARM=('\',
+//             ' DEFINE NONVSAM (NAME(&ID..EXEC) DEVT(3380) ',
+//             'VOL(PUB000))')
+//STEPLIB  DD  DSN=SYSC.LINKLIB,DISP=SHR
+//SYSOUT   DD  DSN=&&IDCAMS,DISP=(MOD,PASS)
+//*
+//*PW14     EXEC PGM=PSU002,PARM=('\',
+//*             ' REPRO INFILE(SYSPROC) ',
+//*             'OUTDATASET(&ID..CLIST(STDLOGON))')
+//*STEPLIB  DD  DSN=SYSC.LINKLIB,DISP=SHR
+//*SYSOUT   DD  DSN=&&IDCAMS,DISP=(MOD,PASS)
+//*
+//* DEFINE ALIAS FOR NEW USER'S ID AND CATALOG ENTRIES FOR STANDARD
+//* FILES FOR NEW USER
+//*
+//IDC15    EXEC PGM=IDCAMS,REGION=1024K
+//SYSPRINT DD  SYSOUT=*
+//SYSPROC  DD  DSN=SYS1.CMDPROC(STDLOGON),DISP=SHR
+//SYSIN    DD  DSN=&&IDCAMS,DISP=(OLD,DELETE)

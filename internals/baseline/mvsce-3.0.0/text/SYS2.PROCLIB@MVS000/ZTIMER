@@ -1,0 +1,7 @@
+//* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * *
+//* INVOKE AUTOMATIC COMMAND/MESSAGE UTILITY                          *
+//* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * *
+//ZTIMER  PROC MEM=ZTIMER,SOUT=A
+//REMINDR EXEC PGM=ZTIMER
+//SYSUDUMP DD  SYSOUT=&SOUT
+//SYSIN    DD  DISP=SHR,DSN=SYS2.CONTROL(&MEM)

@@ -1,0 +1,18 @@
+CONFIG=00,                         /*CONFIG LIST SUFFIX              */+
+SSCPID=01,                         /*THIS VTAMS ID IN NETWORK        */+
+NETSOL=YES,                        /*NETWORK SOLICITOR OPTION        */+
+MAXSUBA=31,                        /*MAXIMUM SUBAREAS IN NETWORK     */+
+NOPROMPT,                          /*OPERATOR PROMPT OPTION          */+
+SUPP=NOSUP,                        /*MESSAGE SUPPRESSION OPTION      */+
+COLD,                              /*RESTART OPTION   - COLD/WARM    */+
+APBUF=(192,,128),                  /*ACE STORAGE POOL                */+
+CRPLBUF=(281,,181),                /*RPL COPY POOL                   */+
+IOBUF=(128,512,104,F),             /*FIXED IO (GP-5/2009)            */+
+LFBUF=(32,,32,F),                  /*LARGE FIXED BUFFER POOL         */+
+LPBUF=(146,,146),                  /*LARGE PAGEBLE BUFFER POOL       */+
+NPBUF=(134,,70,F),                 /*NON WS FMCB                     */+
+PPBUF=(20,3992,10,F),              /*PAGEBLE IO (GP-5/2009)          */+
+SFBUF=(140,,76,F),                 /*SMALL FIXED BUFFER POOL         */+
+SPBUF=(032,,32,F),                 /*SMALL PGBL BUFFER POOL          */+
+UECBUF=(128,,108,F),               /*USER EXIT CB                    */+
+WPBUF=(64,,64,F)                   /*MESSAGE CONTROL BUFFER POOL     */

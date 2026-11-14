@@ -1,0 +1,6 @@
+//CLEARERP PROC
+//* ***************************************************************** *
+//* CLEAR ENVIRONMENTAL ERROR RECORDER DATASET                        *
+//* ***************************************************************** *
+//EREP     EXEC PGM=IFCDIP00
+//SERERDS  DD  DISP=SHR,DSN=SYS1.LOGREC

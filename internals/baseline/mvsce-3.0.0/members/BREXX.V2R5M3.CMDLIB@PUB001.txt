@@ -1,0 +1,11 @@
+$$README      480 5b0a4c214e45f2ae
+EOT            80 2e26148c1befc99c
+LA            160 387123bbbe1edc86
+NJE38DIR      160 3a75a29e8760c136
+REPL           80 98641a057ba4f259
+REXXTRY        80 e1e253506f5e8a90
+TODAY          80 ee257f765b0f97d9
+TT             80 c90ec17e9e5c0ecd
+USERS          80 26bb2a47c9bb63e0
+WHO            80 6ed94f082908197a
+WHOAMI        160 175c59d2691d5955
