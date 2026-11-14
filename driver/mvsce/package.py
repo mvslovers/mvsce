@@ -111,11 +111,21 @@ def _sha256(path):
 
 
 def _git_commit(root):
-    r = subprocess.run(['git', 'rev-parse', 'HEAD'], cwd=root, capture_output=True, text=True)
-    commit = r.stdout.strip() if r.returncode == 0 else 'unknown'
-    r = subprocess.run(['git', 'status', '--porcelain', '--untracked-files=no'], cwd=root,
-                       capture_output=True, text=True)
-    return commit + ('-modified' if r.stdout.strip() else '')
+    """The source commit: GITHUB_SHA in CI (the build container has no git),
+    otherwise git, with -modified for a dirty tree."""
+    import os
+    if os.environ.get('GITHUB_SHA'):
+        return os.environ['GITHUB_SHA']
+    try:
+        r = subprocess.run(['git', 'rev-parse', 'HEAD'], cwd=root, capture_output=True,
+                           text=True)
+        d = subprocess.run(['git', 'status', '--porcelain', '--untracked-files=no'],
+                           cwd=root, capture_output=True, text=True)
+    except OSError:
+        return 'unknown'
+    if r.returncode != 0:
+        return 'unknown'
+    return r.stdout.strip() + ('-modified' if d.stdout.strip() else '')
 
 
 def _volumes(tree):

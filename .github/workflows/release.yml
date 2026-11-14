@@ -38,7 +38,7 @@ jobs:
       - name: Build and package
         run: |
           version="${GITHUB_REF_NAME#v}"
-          docker run --rm --user "$(id -u):$(id -g)" -e HOME=/tmp \
+          docker run --rm --user "$(id -u):$(id -g)" -e HOME=/tmp -e GITHUB_SHA \
             -v "$PWD:/src" -w /src mvsce-build:ci \
             sh -c "./sysgen build --no-cache && ./sysgen package --version $version"
 

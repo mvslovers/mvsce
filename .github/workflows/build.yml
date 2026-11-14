@@ -33,7 +33,7 @@ jobs:
 
       - name: Build
         run: |
-          docker run --rm --user "$(id -u):$(id -g)" -e HOME=/tmp \
+          docker run --rm --user "$(id -u):$(id -g)" -e HOME=/tmp -e GITHUB_SHA \
             -v "$PWD:/src" -w /src mvsce-build:ci \
             sh -c "./sysgen build --no-cache && ./sysgen package --version 0.0.0-ci"
 
