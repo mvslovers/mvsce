@@ -35,12 +35,16 @@ jobs:
         run: |
           docker run --rm --user "$(id -u):$(id -g)" -e HOME=/tmp \
             -v "$PWD:/src" -w /src mvsce-build:ci \
-            ./sysgen build --no-cache
+            sh -c "./sysgen build --no-cache && ./sysgen package --version 0.0.0-ci"
 
       - name: Logs
         if: always()
         uses: actions/upload-artifact@v4
         with:
           name: logs
-          path: build/logs/
+          path: |
+            build/logs/*.log
+            build/logs/smp-s3.txt
+            dist/*-boot-test.log
+            dist/*/MANIFEST.json
           if-no-files-found: ignore

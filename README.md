@@ -7,7 +7,8 @@ procedure, automated and reproducible: an alternative build of MVS/CE.
 runs automated, about twelve minutes on a laptop: S1 starter system, S2
 SMP4 and the distribution libraries, S3 system generation, PTFs, usermods
 and ICKDSF, S4 the first IPL and customisation of the new system, S5 a
-normal start with TSO accepting logons. Releases are next; the plan is in
+normal start with TSO accepting logons. `./sysgen package` turns the
+result into a release package. The plan is in
 [`internals/proposal.md`](internals/proposal.md).
 
 ## Building
@@ -25,7 +26,14 @@ or later, nothing else. Or use the build environment in `container/`.
                                 # one before (for development; caches nothing)
 ./sysgen build --record         # measure: report differing condition codes
                                 # instead of stopping (still fails at the end)
+./sysgen package --version 0.1.0  # after a complete build: dist/mvsce-0.1.0.tar,
+                                # booted once before it is written
 ```
+
+`tools/check-inputs.py` compares every file in `inputs.lock` with what its
+URL serves now; a workflow runs it weekly. A tag `v*` builds, packages and
+drafts a GitHub release (`.github/workflows/release.yml`) with the notes
+from `internals/release-notes/`.
 
 Inputs and stage results are cached in `cache/`, the build tree and the
 Hercules logs are in `build/`. Which version of Jay Moseley's objects is
