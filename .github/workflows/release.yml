@@ -1,0 +1,66 @@
+name: release
+
+# A tag v* builds the whole system (S1-S5), packages it, boots the package
+# once, and creates a draft GitHub release with the package. The draft is
+# published by hand after its text has been reviewed.
+
+on:
+  push:
+    tags: ["v*"]
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: docker/setup-buildx-action@v3
+
+      - name: Build environment (Hercules)
+        uses: docker/build-push-action@v6
+        with:
+          context: container
+          load: true
+          tags: mvsce-build:ci
+          cache-from: type=gha,scope=mvsce-build
+          cache-to: type=gha,mode=max,scope=mvsce-build
+
+      - name: Input cache
+        uses: actions/cache@v4
+        with:
+          path: cache/inputs
+          key: inputs-${{ hashFiles('inputs.lock') }}
+
+      - name: Build and package
+        run: |
+          version="${GITHUB_REF_NAME#v}"
+          docker run --rm --user "$(id -u):$(id -g)" -e HOME=/tmp -e GITHUB_SHA \
+            -v "$PWD:/src" -w /src mvsce-build:ci \
+            sh -c "./sysgen build --no-cache && ./sysgen package --version $version"
+
+      - name: Logs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: logs
+          path: |
+            build/logs/*.log
+            build/logs/smp-s3.txt
+            dist/*-boot-test.log
+          if-no-files-found: ignore
+
+      - name: Draft release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          version="${GITHUB_REF_NAME#v}"
+          notes="internals/release-notes/v$version.md"
+          [ -f "$notes" ] || { echo "missing $notes" >&2; exit 1; }
+          gh release create "$GITHUB_REF_NAME" --draft --title "MVS/CE $version" \
+            --notes-file "$notes" \
+            "dist/mvsce-$version.tar" "dist/mvsce-$version.tar.sha256" \
+            "dist/mvsce-$version/MANIFEST.json"

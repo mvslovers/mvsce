@@ -1,0 +1,48 @@
+name: inputs-check
+
+# Jay Moseley replaces his files under the same URLs. Once a week every
+# file in inputs.lock is fetched and compared; a change opens an issue
+# (one at a time: an open one is not duplicated).
+
+on:
+  schedule:
+    - cron: "17 5 * * 1"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  issues: write
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Compare inputs with inputs.lock
+        id: check
+        run: |
+          set +e
+          python3 tools/check-inputs.py | tee check.txt
+          echo "rc=${PIPESTATUS[0]}" >> "$GITHUB_OUTPUT"
+
+      - name: Open an issue on a change
+        if: steps.check.outputs.rc != '0'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          title="An input of inputs.lock has changed upstream"
+          if gh issue list --state open --search "in:title \"$title\"" --json number -q '.[0].number' | grep -q .; then
+            echo "issue already open"
+            exit 0
+          fi
+          {
+            echo "The weekly check found a file that no longer matches inputs.lock:"
+            echo
+            echo '```'
+            cat check.txt
+            echo '```'
+            echo
+            echo "Add the new file to inputs.lock under a new label (never edit an existing entry), then build with it."
+          } > body.md
+          gh issue create --title "$title" --body-file body.md

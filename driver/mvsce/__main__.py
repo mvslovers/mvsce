@@ -3,13 +3,14 @@
     ./sysgen build [--from STAGE] [--until STAGE] [--no-cache]
     ./sysgen stages
     ./sysgen fetch
+    ./sysgen package --version X
 """
 import argparse
 import signal
 import sys
 from pathlib import Path
 
-from . import build, inputs
+from . import build, inputs, package
 from .log import BuildError, fail, info
 from .stages import STAGES
 
@@ -41,6 +42,9 @@ def main(argv=None):
                         'stopping (the build still fails; nothing is cached)')
     b.add_argument('--no-cache', action='store_true',
                    help='run every stage, neither restore nor save results')
+    pk = sub.add_parser('package', help='make the release package from a complete build')
+    pk.add_argument('--version', required=True, help='release version, MAJOR.MINOR.PATCH')
+    pk.add_argument('--dist', default=str(ROOT / 'dist'), help='output directory (default: dist/)')
     sub.add_parser('stages', help='list the stages')
     sub.add_parser('fetch', help='fetch and verify the inputs of the selected label')
     args = p.parse_args(argv)
@@ -49,6 +53,8 @@ def main(argv=None):
         if args.command == 'stages':
             for s in STAGES:
                 print(f'{s.NAME:4} {s.TITLE}')
+        elif args.command == 'package':
+            package.package(ROOT, args.work, args.dist, args.version, hercules_bin=args.hercules)
         elif args.command == 'fetch':
             config = inputs.load_config(ROOT / 'config' / 'sysgen.toml')
             lock = inputs.load_lock(ROOT / 'inputs.lock')
