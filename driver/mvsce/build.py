@@ -43,7 +43,18 @@ class Context:
 
     def hercules(self, config):
         log = self.logs / f'{self.stage}.log'
-        return hercules.Hercules(config, self.tree, log, binary=self.hercules_bin)
+        return hercules.Hercules(config, self.tree, log, binary=self.hercules_bin,
+                                 on_exit=self._keep_printers)
+
+    def _keep_printers(self):
+        """Every Hercules session's printer files go to logs/, also when the
+        session failed: the next session would overwrite them (issue #7
+        lost its evidence that way)."""
+        for prt in sorted(self.tree.glob('prt*.txt')):
+            n = 1
+            while (target := self.logs / f'{self.stage}-{n}-{prt.name}').exists():
+                n += 1
+            shutil.copy(prt, target)
 
 
 def _driver_digest(root):
@@ -76,7 +87,9 @@ def prepare(ctx, selected, patches=()):
     if ctx.tree.exists():
         shutil.rmtree(ctx.tree)
     ctx.tree.mkdir(parents=True)
-    ctx.logs.mkdir(parents=True, exist_ok=True)
+    if ctx.logs.exists():
+        shutil.rmtree(ctx.logs)      # one build, one set of logs
+    ctx.logs.mkdir(parents=True)
     for item in selected:
         archive = inputs.fetch(item, ctx.cache)
         inputs.extract(archive, ctx.tree / item.into)
@@ -114,7 +127,7 @@ def _save(ctx, stage, key):
         shutil.rmtree(target)
     partial.rename(target)
     (ctx.cache / 'stages' / f'{stage.NAME}.latest').write_text(target.name + '\n')
-    _prune(ctx, stage, keep=3)
+    _prune(ctx, stage, keep=2)
 
 
 def _prune(ctx, stage, keep):
