@@ -88,9 +88,12 @@ through by timing. Hyperion develop has #893.
 
 - The build already fails loudly on such a loss (step and job counts),
   never silently.
-- The fix belongs in Hercules. Until it is there, the build can pin a
-  Hercules commit that carries it (`HERCULES_REPO`/`HERCULES_REF` in
-  `container/Dockerfile`), on top of a develop that has #893.
+- The fix belongs in Hercules: SDL-Hercules-390/hyperion#906 (issue with
+  the reproduction) and PR #907. Until it is merged the build pins the
+  fork commit `34c1bc40` on mvslovers/hyperion (`HERCULES_REPO`,
+  `HERCULES_REF` in `container/Dockerfile`): develop 5648e0e7, which has
+  #893, plus the fix. Measured with exactly that commit: 100 of 100 jobs
+  complete under load.
 - The loss grows with the amount of printed output, so a long jobstream
   such as Jay's USERMODS is the most exposed. Whether this is the
   "problem with the sysgen" that led upstream MVS/CE to apply the
