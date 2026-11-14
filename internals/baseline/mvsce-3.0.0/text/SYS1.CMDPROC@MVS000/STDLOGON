@@ -1,0 +1,23 @@
+        PROC 0
+CONTROL NOMSG,NOLIST,NOSYMLIST,NOCONLIST,NOFLUSH
+CLS
+WRITE ******************************************-
+*************************************
+WRITE *                                         -
+                                    *
+WRITE *                                         -
+                                    *
+WRITE *                    Welcome to MVS Commun-
+ity Edition                         *
+WRITE *                    =====================-
+===========                         *
+WRITE *                                         -
+                                    *
+WRITE *                                         -
+                                    *
+WRITE ******************************************-
+*************************************
+WRITE Run RX MVP LIST to see a list of installable packages
+WRITE Run RX MVP for list of commands
+REVINIT
+WRITE Use command ISPF to access ISPF

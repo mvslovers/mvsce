@@ -1,0 +1,9 @@
+USERMAX=8,                       /* MAXIMUM USERS                    */
+RECONLIM=120,                    /* MAXIMUM DISCONNECT MINUTES       */
+BUFRSIZE=132,                    /* VTIOC BUFFER SIZE                */
+HIBFREXT=13200,                  /* MAX BUFFERS BEFORE SWAP OUT      */
+LOBFREXT=6600,                   /* MIMIMUM BUFFERS BEFORE SWAP IN   */
+MODE=NOBREAK,                    /* KEYBOARD LOCK OPTION             */
+MODESW=NO,                       /* MODESWITCH FROM TERMINAL OPTION  */
+CHNLEN=4,                        /* NO. OF RU'S PER CHAIN            */
+SCRSIZE=1920                     /* MAXIMUM SCREEN SIZE              */

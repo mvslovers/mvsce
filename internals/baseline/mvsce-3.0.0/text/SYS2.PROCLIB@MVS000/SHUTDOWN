@@ -1,0 +1,26 @@
+//*
+//* ------------------------------------------------------------------*
+//* SHUTDOWN JCL Procedure
+//* Usage:
+//*    S SHUTDOWN
+//*    S SHUTDOWN,TYPE='SHUTFAST'
+//*    //SHUTDOWN EXEC SHUTDOWN
+//*    //SHUTDOWN EXEC SHUTDOWN,TYPE='SHUTFAST'
+//* ------------------------------------------------------------------*
+//*
+//MVP      PROC TYPE='SHUTDOWN',
+//         LIB='BREXX.CURRENT.RXLIB',
+//         EXECLIB='SYS2.EXEC'
+//EXEC     EXEC PGM=IKJEFT01,
+//       PARM='BREXX &TYPE',
+//       REGION=8192K
+//TSOLIB   DD   DSN=&LIB,DISP=SHR
+//RXLIB    DD   DSN=&LIB,DISP=SHR
+//SYSEXEC  DD   DSN=&EXECLIB,DISP=SHR
+//SYSPRINT DD   SYSOUT=*
+//SYSTSPRT DD   SYSOUT=*
+//SYSTSIN  DD   DUMMY
+//STDOUT   DD   SYSOUT=*,DCB=(RECFM=FB,LRECL=140,BLKSIZE=5600)
+//STDERR   DD   SYSOUT=*,DCB=(RECFM=FB,LRECL=140,BLKSIZE=5600)
+//STDIN    DD   DUMMY
+//*    PEND

@@ -1,0 +1,28 @@
+         CPU                        /* COLLECT CPU STATISTICS        */
+         PAGING                     /* COLLECT PAGING STATISTICS     */
+         CHAN                       /* COLLECT CHANNEL STATISTICS    */
+         WKLD(PERIOD)               /* COLLECT WORKLOAD MANAGER
+                                       STATISTICS AND REPORT AT THE
+                                       PERIOD LEVEL                  */
+         DEVICE(UNITR)              /* COLLECT UNIT RECORD DEVICE
+                                       STATISTICS                    */
+         DEVICE(TAPE)               /* COLLECT TAPE DEVICE
+                                       STATISTICS                    */
+         DEVICE(DASD)               /* COLLECT DIRECT ACCESS DEVICE
+                                       STATISTICS                    */
+         DEVICE(COMM)               /* COLLECT COMMUNICATION
+                                       EQUIPMENT STATISTICS          */
+         DEVICE(GRAPH)              /* COLLECT GRAPHICS DEVICE
+                                       STATISTICS                    */
+         DEVICE(CHRDR)              /* COLLECT CHARACTER READER
+                                       DEVICE STATISTICS             */
+         REPORT(DEFER)              /* PRINT REPORTS AFTER MF/1
+                                       TERMINATION                   */
+         SYSOUT(A)                  /* REPORT IN SYSOUT CLASS A      */
+         NORECORD                   /* NO SMF RECORDING              */
+         INTERVAL(15M)              /* REPORT AT 15 MINUTE INTERVALS */
+         CYCLE(250)                 /* SAMPLE AT 250 MILLISECOND
+                                       INTERVALS                     */
+         STOP(15M)                  /* STOP IN 15 MINUTES            */
+         OPTIONS                    /* ALLOW OPERATOR TO EXAMINE AND/
+                                       OR TO CHANGE THE MF/1 OPTIONS */

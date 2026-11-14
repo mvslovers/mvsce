@@ -1,0 +1,12 @@
+//*
+//* This proc must be run once after every IPL to activate the APF-
+//* Authorized features of ACETEST. If this job is not run, ACETEST
+//* will still operate, but in a limited manner.
+//*
+//* Either use /S ACEAUTH from MVS console or submit a job
+//* with //ACEAUTH EXEC ACEAUTH as the only step
+//*
+//ACETEST  EXEC PGM=ACETEST,PARM='ACEAUTH'
+//STEPLIB  DD   DSN=SYS2.LINKLIB,DISP=SHR
+//SYSUDUMP DD   SYSOUT=*
+//ACEAUTH  DD   DSN=SYS2.PARMLIB(ACEAUTH),DISP=SHR

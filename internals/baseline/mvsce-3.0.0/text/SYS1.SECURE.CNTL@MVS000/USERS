@@ -1,0 +1,7 @@
+IBMUSER  ADMIN   *         Y
+IBMUSER  RAKFADM *         Y
+MVSCE01  ADMIN   *         Y
+MVSCE01  RAKFADM *         Y
+MVSCE02  USER              N
+MVP     *ADMIN             Y N
+MVP      RAKFADM           Y N

@@ -1,0 +1,19 @@
+CPU=10.0,IOC=5.0,MSO=3.0               /* DEFAULT IPS --IEAIPS00--   */
+WKL=(1,50,99,100)
+OBJ=1,SRV=(1000,*,*,0)                 /* FIRST PERIOD BATCH  (DMN1) */
+OBJ=2,SRV=(1000,*,0)                   /* SECOND PERIOD BATCH (DMN1) */
+OBJ=3,SRV=(1000,*,*,0)                 /* FIRST PERIOD TSO    (DMN2) */
+OBJ=4,SRV=(1000,*,*,0)                 /* SECOND PERIOD TSO   (DMN2) */
+OBJ=5,SRV=(1000,*,*,0)                 /* THIRD PERIOD TSO    (DMN3) */
+OBJ=6,SRV=(1000,1000,1000,1000)        /* HOT BATCH           (DMN1) */
+OBJ=7,SRV=(1000,1,0)                   /* LOW PRIORITY BATCH  (DMN1) */
+DMN=1,CNSTR=(1,50,1)                   /* BATCH                      */
+DMN=2,CNSTR=(1,50,255)                 /* SHORT AND MEDIUM TSO       */
+DMN=3,CNSTR=(1,50,16)                  /* LONG TSO                   */
+PGN=1,(DMN=1,APG=6,DUR=10K,ISV=10K,OBJ=1,RTB=0)     /* BATCH -SHORT  */
+      (DMN=1,APG=6,ISV=10K,OBJ=2,RTB=0)             /* -------MEDIUM */
+PGN=2,(DMN=2,APG=14,DUR=600,ISV=600,OBJ=3,RTB=0)    /* TSO   -SHORT  */
+      (DMN=2,APG=13,DUR=1400,ISV=2K,OBJ=4,RTB=0)    /* -------MEDIUM */
+      (DMN=3,APG=6,ISV=10K,OBJ=5,RTB=0)             /* -------LONG   */
+PGN=3,(DMN=1,APG=9,ISV=100K,OBJ=6,RTB=0)            /* HOT BATCH     */
+PGN=4,(DMN=1,APG=6,ISV=10K,OBJ=7,RTB=0)             /* LOW PRTY BATCH*/

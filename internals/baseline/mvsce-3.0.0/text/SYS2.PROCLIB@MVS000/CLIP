@@ -1,0 +1,7 @@
+//* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * *
+//* INVOKE CLIP UTILITY WHICH USES ICKDSF TO RE-LABEL OFFLINE DASD    *
+//* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * *
+//CLIP     PROC U=,V=        U IS THE UNIT, V IS THE NEW VOLSER
+//CLIP     EXEC PGM=CLIP,PARM='&U./&V.'
+//SYSIN    DD   UNIT=SYSDA,SPACE=(TRK,(1,1))
+//SYSPRINT DD   UNIT=SYSDA,SPACE=(TRK,(1,1))

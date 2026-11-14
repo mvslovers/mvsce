@@ -1,0 +1,11 @@
+ REAL=128,
+ CSA=2048,
+ VRREGN=64,
+ SQA=3,
+ APF=00,
+ PAGNUM=(1,1),
+ BLDLF=00,
+ HARDCPY=(015,ALL,CMDS),
+ PAGE=(SYS1.PAGELPA,                                                   X
+               SYS1.PAGECSA,                                           X
+               SYS1.PAGEL00)

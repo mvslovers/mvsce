@@ -1,0 +1,19 @@
+//*-------------------------------------------------------------------*
+//*                 SMF DATASET DUMP/CLEAR PROCEDURE                  *
+//*-------------------------------------------------------------------*
+//SMFDUMP   PROC CLASS=X,ID=
+//DUMP      EXEC PGM=IFASMFDP,REGION=4096K
+//SYSPRINT  DD  SYSOUT=&CLASS
+//DUMPIN    DD  DSN=SYS1.MAN&ID,DISP=SHR
+//DUMPOUT   DD  DSN=SYSO.SMF.DATA(+1),DISP=(NEW,CATLG),
+//             UNIT=SYSDA,VOL=SER=MVS000,SPACE=(CYL,(5,1),RLSE)
+//SYSIN     DD  DSN=SYS2.CONTROL(SMFDUMP),DISP=SHR
+//*  INDD(DUMPIN,OPTIONS(DUMP))
+//*-------------------------------------------------------------------*
+//CLEAR     EXEC PGM=IFASMFDP,REGION=4096K,COND=(0,NE,DUMP)
+//SYSPRINT  DD  SYSOUT=&CLASS
+//DUMPIN    DD  DSN=SYS1.MAN&ID,DISP=SHR
+//DUMPOUT   DD  DUMMY
+//SYSIN     DD  DSN=SYS2.CONTROL(SMFCLEAR),DISP=SHR
+//*  INDD(DUMPIN,OPTIONS(CLEAR))
+//*-------------------------------------------------------------------*

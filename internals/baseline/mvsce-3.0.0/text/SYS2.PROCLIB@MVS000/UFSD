@@ -1,0 +1,31 @@
+//UFSD     PROC M=UFSDPRM0,
+//            D='SYS2.PARMLIB'
+//*
+//* UFSD - Filesystem Server STC Procedure
+//*
+//* Installation:
+//*   Copy to SYS2.PROCLIB(UFSD)
+//*   Copy config member to SYS2.PARMLIB(UFSDPRM0)
+//*
+//* UFSD runs from MVSLOVER.LOAD via STEPLIB (never from a LNKLST
+//* library -- modules copied into one after IPL abend S0C4 at
+//* fetch once the library takes a new extent).
+//*
+//* Starting:    /S UFSD
+//*              /S UFSD,M=UFSDPRM1       (alternate config member)
+//*              /S UFSD,D='MY.PARMLIB'   (alternate parmlib dataset)
+//* Commands:    /F UFSD,STATS
+//*              /F UFSD,MOUNT LIST
+//*              /F UFSD,HELP
+//*              /F UFSD,SHUTDOWN
+//* Stopping:    /P UFSD
+//*
+//* Recovery:    If UFSD abends (/C or S0Cx), the SSCT and CSA may
+//*              remain allocated.  Run UFSDCLNP before restarting:
+//*                /S UFSDCLNP     (if installed as STC proc)
+//*              or submit the UFSDCLNP batch JCL from SAMPLIB.
+//*
+//UFSD     EXEC PGM=UFSD,REGION=4M,TIME=1440
+//STEPLIB  DD  DISP=SHR,DSN=MVSLOVER.UFSD.LOADLIB
+//UFSDPRM  DD  DISP=SHR,DSN=&D(&M),FREE=CLOSE
+//SYSUDUMP DD  SYSOUT=*

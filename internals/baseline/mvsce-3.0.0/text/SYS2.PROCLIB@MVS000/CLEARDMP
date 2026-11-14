@@ -1,0 +1,9 @@
+//CLEARDMP PROC DD=00         SPECIFY DD={00×01×02}
+//* ***************************************************************** *
+//* CLEAR DUMP DATASET                                                *
+//* ***************************************************************** *
+//EMPTY    EXEC PGM=IEBGENER
+//SYSPRINT DD  SYSOUT=*
+//SYSIN    DD  DUMMY
+//SYSUT1   DD  DUMMY,DCB=(RECFM=U,LRECL=10,BLKSIZE=10)
+//SYSUT2   DD  DISP=SHR,DSN=SYS1.DUMP&DD

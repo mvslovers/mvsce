@@ -1,0 +1,4 @@
+SYS1.OBJPDS01                                PO  FB       80  3120   600   1
+SYS1.OBJPDS02                                PO  FB       80  3120   600   1
+SYS1.OBJPDS03                                PO  FB       80  3120   600   1
+SYS1.STAGE1.OUTPUT                           PS  FB       80  3120    67   3
